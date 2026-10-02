@@ -112,6 +112,7 @@ export const register: Register = on => {
           <Box flexDirection="column" flexGrow={1}>
             {title('STANDBY')}
             <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
+            <Box flexGrow={1} />
             <Box justifyContent="center">
               <Text color={INK} dimColor>{sc.said || 'NO ERROR'}</Text>
             </Box>
@@ -130,6 +131,7 @@ export const register: Register = on => {
               ))
             )}
           </Box>
+          <Box flexGrow={1} />
           <Box justifyContent="center">
             <Text color={INK} dimColor>NO ERROR</Text>
           </Box>
