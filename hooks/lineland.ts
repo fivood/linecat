@@ -104,8 +104,8 @@ export function scene(turnPose: Pose | null): Scene {
   const end = sim.cells.length * CELL
   const isMoving = sim.rest <= 0 && Math.abs(sim.target - sim.x) >= 0.5
   const isSleepy = sim.t - sim.lastEvent > SLEEPY_S
-  // a side-walk tag (walk_side, drawn facing right) is mirrored for leftward steps; front walk otherwise
-  const pose = has(isMoving ? (SPRITES.walk_side ? 'walk_side' : 'walk_front') : turnPose ?? (isSleepy ? 'sleep_front' : 'idle_front'))
+  // front poses are drawn facing right and mirrored once the character last walked left
+  const pose = has(isMoving ? 'walk_front' : turnPose ?? (isSleepy ? 'sleep_front' : 'idle_front'))
   const n = SPRITES[pose]!.frames.length
   return {
     camX: Math.round(Math.min(Math.max(-8, sim.x - W * 0.55), Math.max(-8, end + 24 - W))),
@@ -113,7 +113,7 @@ export function scene(turnPose: Pose | null): Scene {
     catY: Math.round(standY(sim.x)),
     pose,
     frame: Math.floor((sim.anim * 1000) / (MS[pose] ?? SPRITES[pose]!.ms)) % n,
-    isFlipped: pose === 'walk_side' && sim.dir < 0,
+    isFlipped: sim.dir < 0 && !pose.endsWith('_back'),
     said: sim.said,
   }
 }

@@ -1,8 +1,8 @@
 # Aseprite sheet + json -> hooks/sprite.ts (the band's character): per frame tag, the frames as strings of 1x1 SVG rects
 # (row runs) in the frame's own 0..w box, plus the exported ms per frame.
 # usage: python sheet2ts.py sheet.png sheet.json hooks/sprite.ts ["artwork credit line"]
-# Tags the band uses: idle_front (required), idle_back, walk_front, sleep_front, and optionally
-# walk_side (drawn facing right, mirrored for leftward steps). A missing tag falls back to idle_front.
+# Tags the band uses: idle_front (required), idle_back, walk_front, sleep_front. Draw the front poses
+# facing right; they are mirrored when the character heads left. A missing tag falls back to idle_front.
 import json, sys
 from PIL import Image
 

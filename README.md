@@ -36,8 +36,9 @@ Frame tags it uses:
 | `idle_front` | standing | required; every missing tag falls back to it |
 | `idle_back` | Claude is thinking | |
 | `walk_front` | walking | |
-| `walk_side` | walking, drawn facing right | optional; mirrored for leftward steps, used instead of `walk_front` |
 | `sleep_front` | two quiet minutes | |
+
+Draw the `_front` poses facing right: they are mirrored when the character heads left, and it keeps facing the way it last walked. `_back` poses are never mirrored.
 
 Requires Pillow.
 
