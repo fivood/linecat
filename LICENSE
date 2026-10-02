@@ -25,10 +25,10 @@ SOFTWARE.
 Artwork exception
 
 The MIT License above covers the code only. It does not cover the pixel-cat
-artwork: the sprite pixel data embedded in `hooks/cats.ts` (the "sem_cat"
+artwork: the sprite pixel data embedded in `hooks/sprite.ts` (the "sem_cat"
 character, all poses and frames).
 
 Copyright (c) 2026 fivood. All rights reserved. The artwork may not be copied,
 modified, redistributed or reused outside this repository without permission.
 You may run this mod unmodified for personal use. To use the code with other
-art, regenerate `hooks/cats.ts` from your own sprite sheet with `sheet2ts.py`.
+art, regenerate `hooks/sprite.ts` from your own sprite sheet with `sheet2ts.py`.

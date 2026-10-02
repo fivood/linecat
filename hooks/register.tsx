@@ -1,8 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Meter, Pose, Run } from '../types'
-import { CATS } from './cats'
+import type { Cell, Meter, Pose, Run, Scene } from '../types'
+import * as lineland from './lineland'
 
 // NieR:Automata palette
 const PAPER = '#dad4bb'
@@ -11,13 +11,14 @@ const RED = '#b2533e'
 const READ = '#f5f2e8' // light paper for reading, NieR panel body tone
 
 const LABEL: Record<string, string> = { five_hour: '5H', seven_day: '7D', spend_limit: 'SPEND' }
-// stream chunk kind -> cat pose while a turn runs
+// stream chunk kind -> the character's pose while a turn runs
 const POSE: Record<string, Pose> = { thinking: 'idle_back', text: 'walk_front', tool: 'walk_back', input: 'walk_back' }
 
 const meter = atom({ plugin: 'nier-ui', key: 'meter' } as const, null)
 const open = atom({ plugin: 'nier-ui', key: 'open' } as const, [] as string[])
 const run = atom({ plugin: 'nier-ui', key: 'run' } as const, { startedAt: 0, seconds: 0, tokens: 0 } as Run)
-const pose = atom({ plugin: 'nier-ui', key: 'pose' } as const, 'idle_front' as Pose)
+const line = atom({ plugin: 'nier-ui', key: 'line' } as const, [] as Cell[])
+const scene = atom({ plugin: 'nier-ui', key: 'scene' } as const, null as Scene | null)
 
 const bar = (pct: number, cells = 12) => {
   const n = Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)))
@@ -48,9 +49,37 @@ const status = (c: { isRunning: boolean; isErrored: boolean; isInterrupted: bool
   c.isRunning ? 'RUNNING' : c.isInterrupted ? 'ABORTED' : c.isErrored ? 'ERROR' : ''
 
 export const register: Register = on => {
+  // the pose the running turn asks the character for while it stands still; null between turns
+  let turnPose: Pose | null = null
+  let walker: { cancel: () => void } | undefined
+
   on('session.start', async ($, e, next) => {
     const u = await $.session.usage()
     await update($, meter, (): Meter => ({ limits: u.rateLimits, ctx: u.context.percent }))
+
+    lineland.load(await read($, line))
+    walker?.cancel()
+    // ponytail: ticks whether or not the band shows; gate it if it ever costs
+    walker = $.clock.every(1000 / lineland.FPS, () => {
+      const isGrown = lineland.tick(1 / lineland.FPS)
+      void (async () => {
+        if (isGrown) await update($, line, () => [...lineland.cells()])
+        await update($, scene, () => lineland.scene(turnPose))
+      })()
+    })
+    return next(e)
+  })
+
+  // Lineland: every tool call grows the line
+  on('tool.call', async ($, e, next) => {
+    const r = await next(e)
+    lineland.grow(e.tool, Boolean(r.deny) || Boolean(r.isError))
+    await update($, line, () => [...lineland.cells()])
+    return r
+  })
+
+  on('prompt.submit', ($, e, next) => {
+    lineland.wake()
     return next(e)
   })
 
@@ -70,29 +99,40 @@ export const register: Register = on => {
       ...(m.ctx === undefined ? [] : [{ label: 'CTX', pct: m.ctx, tail: '' }]),
     ]
 
+    const sc = 'Svg' in ui ? await read($, scene) : null
+    const title = (t: string) => (
+      <Box backgroundColor={INK} paddingX={2}>
+        <Text color={PAPER} bold>{t}</Text>
+      </Box>
+    )
+
     return (
-      <Box flexDirection="column">
-        <Box backgroundColor={INK} paddingX={2}>
-          <Text color={PAPER} bold>RESOURCE MONITOR</Text>
-        </Box>
-        <Box flexDirection="row" alignItems="center" gap={1} paddingX={2}>
-          {'Svg' in ui ? (
-          <ui.Svg source={CATS[e.props.isWorking ? await read($, pose) : 'sleep_front']} alt="pixel cat" width={64} height={64} />
+      <Box flexDirection="row" gap={2}>
+        {'Svg' in ui && sc ? (
+          <Box flexDirection="column" flexGrow={1}>
+            {title('STANDBY')}
+            <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
+            <Box justifyContent="center">
+              <Text color={INK} dimColor>{sc.said || 'NO ERROR'}</Text>
+            </Box>
+          </Box>
         ) : null}
-          <Box flexDirection="column">
+        <Box flexDirection="column" flexGrow={1}>
+          {title('RESOURCE MONITOR')}
+          <Box flexDirection="column" paddingX={2} paddingY={1}>
             {rows.length === 0 ? (
-              <Text color={INK}>  NO DATA. AWAITING FIRST RESPONSE.</Text>
+              <Text color={INK}>NO DATA. AWAITING FIRST RESPONSE.</Text>
             ) : (
               rows.map(r => (
                 <Text key={r.label} color={r.pct >= 80 ? RED : INK}>
-                  {'  ' + r.label.padEnd(5) + bar(r.pct) + ' ' + String(Math.round(r.pct)).padStart(3) + '%  ' + r.tail}
+                  {r.label.padEnd(5) + bar(r.pct) + ' ' + String(Math.round(r.pct)).padStart(3) + '%  ' + r.tail}
                 </Text>
               ))
             )}
           </Box>
-        </Box>
-        <Box justifyContent="center">
-          <Text color={INK} dimColor>NO ERROR</Text>
+          <Box justifyContent="center">
+            <Text color={INK} dimColor>NO ERROR</Text>
+          </Box>
         </Box>
       </Box>
     )
@@ -102,7 +142,7 @@ export const register: Register = on => {
   let tick: { cancel: () => void } | undefined
 
   on('turn.start', async ($, e, next) => {
-    await update($, pose, (): Pose => 'idle_front')
+    turnPose = 'idle_front'
     const startedAt = await $.clock.now()
     await update($, run, (): Run => ({ startedAt, seconds: 0, tokens: 0 }))
     tick?.cancel()
@@ -113,6 +153,7 @@ export const register: Register = on => {
   })
 
   on('turn.complete', (_$, e, next) => {
+    turnPose = null
     tick?.cancel()
     tick = undefined
     return next(e)
@@ -128,14 +169,9 @@ export const register: Register = on => {
   })
 
   on('turn.step', async function* ($, e, next) {
-    let last: Pose | undefined
     const s = next(e)
     for await (const c of s) {
-      const p = POSE[c.kind]
-      if (p && p !== last) {
-        last = p
-        await update($, pose, () => p)
-      }
+      turnPose = POSE[c.kind] ?? turnPose
       yield c
     }
     const r = await s.result

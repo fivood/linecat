@@ -3,11 +3,13 @@
 A Claude Code mod (function-hook plugin) that restyles the desktop Code tab after the *NieR:Automata* menus.
 
 - **Messages**: your prompts and Claude's replies drawn as NieR panels — dark title bar (`INPUT` / `REPORT`), light paper body, square corners.
-- **Usage band** above the prompt: 5-hour / 7-day quota and context fill as `■□` bars, with an animated pixel cat whose pose follows what Claude is doing (thinking, writing, running tools, asleep when idle).
+- **Band above the prompt**, two panels:
+  - **STANDBY**: Lineland, after the desktop pet of [A Visitor from the Fourth Dimension](https://github.com/fivood/claudewant). One line of paper that the session unfolds: reads pool into water, commands push up mountains, edits grow trees, errors tear rifts. A pixel character (a cat by default) wanders it, climbs the mountains, hops the rifts, ponders with its back turned while Claude thinks, and curls up after two quiet minutes.
+  - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars.
 - **Spinner**: `■ PROCESSING  12s  ·  340 tokens`.
 - **Tool rows**: dark edge bar, tool name, what it touched, status and the first lines of plain-text output.
 
-The cat is drawn as pixel rects in SVG (`hooks/cats.ts`), generated from an Aseprite sprite-sheet export by `sheet2ts.py`.
+The character is drawn as pixel rects in SVG (`hooks/sprite.ts`), generated from an Aseprite sprite-sheet export by `sheet2ts.py`.
 
 ## Install
 
@@ -19,19 +21,29 @@ Clone it anywhere, then point Claude Code at the folder in `~/.claude/settings.j
 
 Or for one session: `claude --plugin-dir /path/to/nier-ui`.
 
-## Swap the cat
+## Swap the character
 
-Export your sprite as a sheet + JSON from Aseprite (frame tags `idle_front`, `idle_back`, `walk_front`, `walk_back`, `sleep_front`), then:
+Export your sprite as a sheet + JSON from Aseprite (square frames up to about 32 px), then:
 
 ```
-python sheet2ts.py sheet.png sheet.json hooks/cats.ts
+python sheet2ts.py sheet.png sheet.json hooks/sprite.ts "Artwork (c) you"
 ```
+
+Frame tags it uses:
+
+| Tag | When | |
+|---|---|---|
+| `idle_front` | standing | required; every missing tag falls back to it |
+| `idle_back` | Claude is thinking | |
+| `walk_front` | walking | |
+| `walk_side` | walking, drawn facing right | optional; mirrored for leftward steps, used instead of `walk_front` |
+| `sleep_front` | two quiet minutes | |
 
 Requires Pillow.
 
 ## License
 
-Code: MIT. The pixel-cat artwork in `hooks/cats.ts` is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
+Code: MIT. The pixel-cat artwork in `hooks/sprite.ts` is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
 
 ## Limits
 
