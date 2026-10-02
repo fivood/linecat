@@ -29,6 +29,10 @@ python sheet2ts.py sheet.png sheet.json hooks/cats.ts
 
 Requires Pillow.
 
+## License
+
+Code: MIT. The pixel-cat artwork in `hooks/cats.ts` is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
+
 ## Limits
 
 The desktop app's own background, the grey frame around the band, its per-turn "Ran a command…" fold and system notices are not hookable, so they keep the app's look.
