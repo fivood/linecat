@@ -59,7 +59,7 @@ type Rec = Record<string, unknown>
 // one line saying what a call touched: the command, path or pattern
 const brief = (input: unknown) => {
   const i = (input ?? {}) as Rec
-  return String(i.command ?? i.file_path ?? i.pattern ?? i.path ?? i.url ?? i.description ?? '').split('\n')[0].slice(0, 160)
+  return String(i.command ?? i.file_path ?? i.pattern ?? i.path ?? i.url ?? i.description ?? '').split('\n')[0]!.slice(0, 160)
 }
 
 // first lines of a plain-text result (Bash stdout, string results); other shapes show nothing
@@ -76,7 +76,7 @@ const registerCommand = ($: EngineInterface) =>
   $.command.register({
     name: 'lineland',
     description: tr(W.command.description),
-    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto]',
+    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto] [monitor|panels on|off]',
     immediate: true,
   })
 
@@ -97,11 +97,12 @@ async function switchLang($: EngineInterface, want: string): Promise<string> {
   const isAuto = want.trim().toLowerCase() === 'auto'
   const l = isAuto ? null : fromSetting(want)
   if (!isAuto && !l) return fill(W.lang.unknown, { want: want.trim() })
-  let isSaved = true
+  // why the store refused, shown with the "this session only" note so it can be told apart
+  let whyUnsaved = ''
   try {
     await $.store.set('language', l ?? 'auto')
-  } catch {
-    isSaved = false
+  } catch (err) {
+    whyUnsaved = (err instanceof Error ? err.message : String(err)).slice(0, 120) || 'unknown'
   }
   const row = (await $.config.list()).find(r => r.provider.plugin === 'linecat' && /language/i.test(r.key))
   if (row) await $.config.set({ key: row.key, value: l ?? 'auto' })
@@ -111,7 +112,7 @@ async function switchLang($: EngineInterface, want: string): Promise<string> {
     await update($, settled, () => null)
     await settleFromConfig($)
   }
-  return tr(l ? W.lang.set : W.lang.auto) + (isSaved ? '' : ' ' + tr(W.lang.unsaved))
+  return tr(l ? W.lang.set : W.lang.auto) + (whyUnsaved ? ` ${tr(W.lang.unsaved)} [${whyUnsaved}]` : '')
 }
 
 // auto: Claude Code's own response-language setting, if it has a row for one
@@ -132,8 +133,16 @@ export const register: Register = (on, options) => {
   const picked = fromSetting(options.language)
   isSettled = picked !== null
   if (picked) setLang(picked)
+  // the two halves a person may not want: the usage meter, and the restyled transcript. Off in the
+  // settings is off; on there, a choice made with /lineland monitor|panels (kept in the store) decides
+  const isMonitorAllowed = options.monitor !== false
+  const isRestyleAllowed = options.restyle !== false
+  let isMonitorOn = isMonitorAllowed
+  let isRestyleOn = isRestyleAllowed
 
   on('session.start', async ($, e, next) => {
+    isMonitorOn = isMonitorAllowed && (await $.store.get('monitor')) !== false
+    isRestyleOn = isRestyleAllowed && (await $.store.get('restyle')) !== false
     const u = await $.session.usage()
     await update($, meter, (m): Meter => ({ limits: u.rateLimits.length ? u.rateLimits : m?.limits ?? [], ctx: u.context.percent ?? m?.ctx }))
 
@@ -175,6 +184,20 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'lineland' }, async ($, e) => {
     const [head = '', ...rest] = e.args.trim().split(/\s+/)
     if (/^(lang|language|语言|語言|言語)$/i.test(head)) return { text: await switchLang($, rest.join(' ')) }
+    // /lineland monitor on|off, /lineland panels on|off: kept in the store like the language
+    const which = /^(monitor|meter)$/i.test(head) ? 'monitor' : /^(panels?|restyle)$/i.test(head) ? 'restyle' : null
+    if (which) {
+      const v = (rest[0] ?? '').toLowerCase()
+      const isOn = v === 'on' ? true : v === 'off' ? false : null
+      if (isOn === null) return { text: fill(W.toggle.which, { what: which === 'monitor' ? 'monitor' : 'panels' }) }
+      await $.store.set(which, isOn)
+      const isAllowed = which === 'monitor' ? isMonitorAllowed : isRestyleAllowed
+      if (which === 'monitor') isMonitorOn = isOn && isAllowed
+      else isRestyleOn = isOn && isAllowed
+      $.ui.invalidate('ui.render')
+      const said = which === 'monitor' ? (isOn ? W.toggle.monitorOn : W.toggle.monitorOff) : isOn ? W.toggle.panelsOn : W.toggle.panelsOff
+      return { text: tr(said) + (isOn && !isAllowed ? ' ' + tr(W.toggle.settings) : '') }
+    }
     const want = e.args.trim().replace(/^\[|\]$/g, '').trim().toLowerCase()
     const current = await read($, sheet)
     const others = THEMES.filter(t => t.id !== current)
@@ -244,16 +267,17 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const m = await read($, meter)
-    if (e.props.hasSurvey || m === null) return next(e)
-
     const ui = $.ui.resolve(e)
+    const sc = 'Svg' in ui ? await read($, scene) : null
+    // nothing of ours to draw: the monitor off with no line here (the terminal), or on with no numbers yet
+    if (e.props.hasSurvey || (isMonitorOn ? m === null : !sc)) return next(e)
+
     const { Box, Text } = ui
-    const rows = [
+    const rows = !m ? [] : [
       ...m.limits.map(l => ({ label: LABEL[l.kind] ?? l.kind.toUpperCase(), pct: l.percentUsed, tail: resetAt(l.resetsAt) })),
       ...(m.ctx === undefined ? [] : [{ label: 'CTX', pct: m.ctx, tail: '' }]),
     ]
 
-    const sc = 'Svg' in ui ? await read($, scene) : null
     const title = (t: string) => (
       <Box backgroundColor={BAR} paddingX={2}>
         <Text color={BAR_TEXT} bold>{t}</Text>
@@ -280,36 +304,38 @@ export const register: Register = (on, options) => {
             </Box>
           </Box>
         ) : null}
-        <Box flexDirection="column" flexGrow={2} width={0}>
-          {title('RESOURCE MONITOR')}
-          {rows.length === 0 ? (
-            <Box paddingX={2} paddingY={1}>
-              <Text color={TEXT}>NO DATA. AWAITING FIRST RESPONSE.</Text>
+        {isMonitorOn ? (
+          <Box flexDirection="column" flexGrow={2} width={0}>
+            {title('RESOURCE MONITOR')}
+            {rows.length === 0 ? (
+              <Box paddingX={2} paddingY={1}>
+                <Text color={TEXT}>NO DATA. AWAITING FIRST RESPONSE.</Text>
+              </Box>
+            ) : (
+              // one column each for label, bar, percentage and reset, so they line up in any font
+              <Box flexDirection="row" gap={1} paddingX={1} paddingY={1}>
+                {[
+                  (r: (typeof rows)[number]) => r.label,
+                  (r: (typeof rows)[number]) => bar(r.pct),
+                  (r: (typeof rows)[number]) => Math.round(r.pct) + '%',
+                  (r: (typeof rows)[number]) => r.tail || ' ',
+                ].map((cell, k) => (
+                  <Box key={'c' + k} flexDirection="column" alignItems={k === 2 ? 'flex-end' : 'flex-start'}>
+                    {rows.map(r => (
+                      <Text key={r.label} color={r.pct >= 80 ? RED : TEXT} wrap="truncate-end">
+                        {cell(r)}
+                      </Text>
+                    ))}
+                  </Box>
+                ))}
+              </Box>
+            )}
+            <Box flexGrow={1} />
+            <Box justifyContent="center">
+              <Text color={TEXT} dimColor>NO ERROR</Text>
             </Box>
-          ) : (
-            // one column each for label, bar, percentage and reset, so they line up in any font
-            <Box flexDirection="row" gap={1} paddingX={1} paddingY={1}>
-              {[
-                (r: (typeof rows)[number]) => r.label,
-                (r: (typeof rows)[number]) => bar(r.pct),
-                (r: (typeof rows)[number]) => Math.round(r.pct) + '%',
-                (r: (typeof rows)[number]) => r.tail || ' ',
-              ].map((cell, k) => (
-                <Box key={'c' + k} flexDirection="column" alignItems={k === 2 ? 'flex-end' : 'flex-start'}>
-                  {rows.map(r => (
-                    <Text key={r.label} color={r.pct >= 80 ? RED : TEXT} wrap="truncate-end">
-                      {cell(r)}
-                    </Text>
-                  ))}
-                </Box>
-              ))}
-            </Box>
-          )}
-          <Box flexGrow={1} />
-          <Box justifyContent="center">
-            <Text color={TEXT} dimColor>NO ERROR</Text>
           </Box>
-        </Box>
+        ) : null}
       </Box>
     )
   })
@@ -340,7 +366,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
-    if (e.surface !== 'desktop') return next(e)
+    if (!isRestyleOn || e.surface !== 'desktop') return next(e)
 
     const { Text } = $.ui.resolve(e)
     const r = await read($, run)
@@ -367,6 +393,7 @@ export const register: Register = (on, options) => {
 
   // tool rows: a dark edge bar, the tool name, what it touched
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+    if (!isRestyleOn) return next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     // the first row of a group we expanded carries the group's FOLD button
     const id = e.props.tool_use_id
@@ -392,6 +419,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
+    if (!isRestyleOn) return next(e)
     const id = e.props.calls[0]?.tool_use_id
     if (e.props.isExpanded || (id && (await read($, open)).includes(id))) {
       return next({ ...e, props: { ...e.props, isExpanded: true } })
@@ -416,6 +444,7 @@ export const register: Register = (on, options) => {
 
   // transcript: paper panels, dark title bar over a light paper body
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {
+    if (!isRestyleOn) return next(e)
     const { Box, Markdown, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column" backgroundColor={READ_BODY}>
@@ -432,7 +461,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
-    if (e.props.from || e.props.task || !e.props.text) return next(e)
+    if (!isRestyleOn || e.props.from || e.props.task || !e.props.text) return next(e)
 
     const { Box, Text } = $.ui.resolve(e)
     return (

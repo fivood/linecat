@@ -1,0 +1,15 @@
+{
+  "name": "linecat-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild demo.ts --bundle --platform=node --format=esm --external:@resvg/resvg-js --outfile=demo.mjs --log-level=error",
+    "gif": "npm run build && node demo.mjs ../../docs/demo.gif en",
+    "gif:zh": "npm run build && node demo.mjs ../../docs/demo-zh.gif zh"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "esbuild": "0.24.0",
+    "gifenc": "1.0.3"
+  }
+}

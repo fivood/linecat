@@ -2,6 +2,8 @@
 
 English · [中文](README.zh-CN.md)
 
+![Linecat: the cat walks a line that grows water, mountains, trees and a rift as Claude reads, runs, edits and errs, then the same line on other sheets](docs/demo.gif)
+
 A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat lives in a strip above the prompt, walking a line that your session unfolds as it works, and wearing what Claude is doing over its head. The rest of the tab gets a retro game-menu look: paper panels under solid title bars, in both the light and the dark theme.
 
 - **Messages**: your prompts and Claude's replies drawn as panels with a title bar (`INPUT` / `REPORT`) and square corners. The bodies are a warm translucent tint and the text and title bars use the theme's own colours, so the light theme gets paper panels with dark bars and the dark theme dark warm panels with light bars, with no setting to change.
@@ -27,6 +29,7 @@ A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat l
       Subagents' own steps and calls do not change it; their parent `Agent` call shows instead.
   - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars in aligned columns, each with when it resets (`RESET 20:00`, or `RESET 10/13 20:00` when that is not today).
 - **Language**: the narration, the sheets' names and intros and the `/lineland` replies come in 中文, 日本語 and English. `/lineland lang zh` (or `ja`, `en`, `auto`) switches it on the spot and saves it, which also works in the desktop app where `/config` is not available; the same **Language** setting is in `/config` and asked at install. `auto` follows Claude Code's own response-language setting when it has one, otherwise the script of your first prompt. The status labels (`EXECUTE`, `ANALYZING`…) stay English on purpose, as part of the look.
+- **Settings**: the band and the restyle come apart. **Resource monitor** off gives the line the whole band; **Retro panels** off leaves messages, tool rows and the spinner to the app, so only the band is linecat's. Both are on by default and asked at install. Switch them with `/lineland monitor on|off` and `/lineland panels on|off`, which also work in the desktop app and are remembered across sessions; `/config` has them too, and off there wins.
 - **Spinner**: `■ PROCESSING  12s  ·  340 tokens`.
 - **Tool rows**: dark edge bar, tool name, what it touched, status and the first lines of plain-text output.
 

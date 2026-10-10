@@ -20,6 +20,18 @@
         "ja",
         "en"
       ]
+    },
+    "monitor": {
+      "type": "boolean",
+      "title": "Resource monitor / 用量监视 / リソースモニター",
+      "description": "The usage half of the band above the prompt: 5-hour and 7-day quota and context. Off, the line takes the whole band.",
+      "default": true
+    },
+    "restyle": {
+      "type": "boolean",
+      "title": "Retro panels / 复古面板 / レトロパネル",
+      "description": "Paper panels for messages, tool rows and the thinking line. Off, the app draws them its own way and only the band remains.",
+      "default": true
     }
   }
 }

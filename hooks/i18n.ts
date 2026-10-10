@@ -44,12 +44,33 @@ export const W = {
   },
   command: {
     description: {
-      zh: '给线国换一张纸（随机，或指定地貌名）；lang zh/ja/en/auto 切换语言',
-      ja: '線国の紙を替える（ランダム、または地形名を指定）；lang zh/ja/en/auto で言語を切り替え',
-      en: 'Redraw Lineland on another sheet (at random, or name one); lang zh/ja/en/auto switches language',
+      zh: '给线国换一张纸（随机，或指定地貌名）；lang 切换语言；monitor / panels on|off 开关用量监视和复古面板',
+      ja: '線国の紙を替える（ランダム、または地形名を指定）；lang で言語を切り替え；monitor / panels on|off でモニターとパネルを切り替え',
+      en: 'Redraw Lineland on another sheet (at random, or name one); lang switches language; monitor / panels on|off toggle the usage monitor and retro panels',
     },
     switched: { zh: '线国换成了「{name}」。', ja: '線国を「{name}」に替えた。', en: 'Lineland is now drawn on {name}.' },
     unknown: { zh: '没有「{want}」这张纸。可选：{all}', ja: '「{want}」という紙はない。選べるのは：{all}', en: 'No sheet called "{want}". Choose from: {all}' },
+  },
+  // /lineland monitor on|off, /lineland panels on|off
+  toggle: {
+    monitorOn: { zh: '用量监视已打开。', ja: 'リソースモニターをオンにした。', en: 'Resource monitor on.' },
+    monitorOff: {
+      zh: '用量监视已关闭，线国占满整条。',
+      ja: 'リソースモニターをオフにした。線国が帯いっぱいに広がる。',
+      en: 'Resource monitor off; Lineland takes the whole band.',
+    },
+    panelsOn: { zh: '复古面板已打开。', ja: 'レトロパネルをオンにした。', en: 'Retro panels on.' },
+    panelsOff: {
+      zh: '复古面板已关闭，消息交还给 App 自己画。',
+      ja: 'レトロパネルをオフにした。メッセージはアプリ本来の表示に戻る。',
+      en: 'Retro panels off; the app draws messages its own way again.',
+    },
+    which: { zh: '用 on 或 off，例如 /lineland {what} off', ja: 'on か off を指定する。例：/lineland {what} off', en: 'Use on or off, as in /lineland {what} off' },
+    settings: {
+      zh: '（设置里已关闭这一项，要先在 /config 里打开。）',
+      ja: '（設定でオフになっている。先に /config でオンにする必要がある。）',
+      en: '(It is off in the settings; turn it on in /config first.)',
+    },
   },
   // /lineland lang …; each reply is drawn in the language just picked
   lang: {
