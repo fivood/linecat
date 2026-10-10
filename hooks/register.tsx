@@ -76,7 +76,7 @@ const registerCommand = ($: EngineInterface) =>
   $.command.register({
     name: 'lineland',
     description: tr(W.command.description),
-    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + ']',
+    argumentHint: tr(W.command.hint),
     immediate: true,
   })
 
@@ -88,6 +88,23 @@ async function settle($: EngineInterface, l: Lang) {
   setLang(l)
   await update($, settled, () => l)
   await registerCommand($)
+}
+
+// /lineland lang <zh|ja|en|auto>: pick the language here, kept past this session by writing the
+// plugin's own Language row as the /config menu would (which reloads the module with it)
+async function switchLang($: EngineInterface, want: string): Promise<string> {
+  const isAuto = want.trim().toLowerCase() === 'auto'
+  const l = isAuto ? null : fromSetting(want)
+  if (!isAuto && !l) return fill(W.lang.unknown, { want: want.trim() })
+  const row = (await $.config.list()).find(r => r.provider.plugin === 'linecat' && /language/i.test(r.key))
+  const isSaved = row ? !('deny' in (await $.config.set({ key: row.key, value: l ?? 'auto' }))) : false
+  if (l) await settle($, l)
+  else {
+    isSettled = false
+    await update($, settled, () => null)
+    await settleFromConfig($)
+  }
+  return tr(l ? W.lang.set : W.lang.auto) + (isSaved ? '' : ' ' + tr(W.lang.unsaved))
 }
 
 // auto: Claude Code's own response-language setting, if it has a row for one
@@ -145,6 +162,8 @@ export const register: Register = (on, options) => {
 
   // /lineland [sheet]: the same line redrawn on another sheet, a named one or any other at random
   on('command.run', { command: 'lineland' }, async ($, e) => {
+    const [head = '', ...rest] = e.args.trim().split(/\s+/)
+    if (/^(lang|language|语言|語言|言語)$/i.test(head)) return { text: await switchLang($, rest.join(' ')) }
     const want = e.args.trim().toLowerCase()
     const current = await read($, sheet)
     const others = THEMES.filter(t => t.id !== current)

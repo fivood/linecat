@@ -44,12 +44,32 @@ export const W = {
   },
   command: {
     description: {
-      zh: '给线国换一张纸：不带参数随机换，或指定地貌名',
-      ja: '線国の紙を替える：引数なしでランダム、または地形の名前を指定',
-      en: 'Redraw Lineland on another sheet: at random, or name one',
+      zh: '给线国换一张纸（随机，或指定地貌名）；lang zh/ja/en/auto 切换语言',
+      ja: '線国の紙を替える（ランダム、または地形名を指定）；lang zh/ja/en/auto で言語を切り替え',
+      en: 'Redraw Lineland on another sheet (at random, or name one); lang zh/ja/en/auto switches language',
     },
+    hint: { zh: '[地貌名 | lang zh/ja/en/auto]', ja: '[地形名 | lang zh/ja/en/auto]', en: '[sheet | lang zh/ja/en/auto]' },
     switched: { zh: '线国换成了「{name}」。', ja: '線国を「{name}」に替えた。', en: 'Lineland is now drawn on {name}.' },
     unknown: { zh: '没有「{want}」这张纸。可选：{all}', ja: '「{want}」という紙はない。選べるのは：{all}', en: 'No sheet called "{want}". Choose from: {all}' },
+  },
+  // /lineland lang …; each reply is drawn in the language just picked
+  lang: {
+    set: { zh: '线国猫现在说中文。', ja: '線国猫は日本語で話すようになった。', en: 'Linecat now speaks English.' },
+    auto: {
+      zh: '语言改回自动：跟随 Claude Code 的语言设置，没有的话看你的第一条消息。',
+      ja: '言語を自動に戻した：Claude Code の言語設定に従い、なければ最初のメッセージで判断する。',
+      en: 'Language is back to auto: Claude Code’s language setting if it has one, otherwise your first message.',
+    },
+    unsaved: {
+      zh: '（只对这次会话有效：没能写进设置。）',
+      ja: '（このセッションだけ：設定には保存できなかった。）',
+      en: '(This session only: it could not be saved to the settings.)',
+    },
+    unknown: {
+      zh: '没有「{want}」这种语言。可选：zh、ja、en、auto',
+      ja: '「{want}」という言語はない。選べるのは：zh、ja、en、auto',
+      en: 'No language "{want}". Choose from: zh, ja, en, auto',
+    },
   },
 } satisfies Record<string, Record<string, Words>>
 
