@@ -288,8 +288,9 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // a measurement may carry the context alone, with no quota windows: keep the last ones then
   on('session.measure', async ($, e, next) => {
-    await update($, meter, (): Meter => ({ limits: e.rateLimits, ctx: e.context.percent }))
+    await update($, meter, (m): Meter => ({ limits: e.rateLimits.length ? e.rateLimits : m?.limits ?? [], ctx: e.context.percent ?? m?.ctx }))
     return next(e)
   })
 
