@@ -1,8 +1,8 @@
-# nier-ui
+# 线国猫 Linecat
 
-A Claude Code mod (function-hook plugin) that restyles the desktop Code tab after the *NieR:Automata* menus.
+A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat lives in a strip above the prompt, walking a line that your session unfolds as it works, and wearing what Claude is doing over its head. The rest of the tab gets a retro game-menu look: warm grey paper panels under dark title bars.
 
-- **Messages**: your prompts and Claude's replies drawn as NieR panels — dark title bar (`INPUT` / `REPORT`), light paper body, square corners.
+- **Messages**: your prompts and Claude's replies drawn as paper panels — dark title bar (`INPUT` / `REPORT`), light paper body, square corners.
 - **Band above the prompt**, two panels:
   - **STANDBY**: Lineland, after the desktop pet of [A Visitor from the Fourth Dimension](https://github.com/fivood/claudewant). One line of paper that the session unfolds: reads pool into water, commands push up mountains, edits grow trees, errors tear rifts. A pixel character (a cat by default) wanders it, climbs the mountains, hops the rifts, and curls up after two quiet minutes.
     - **The sheet** is one of the game's ten, drawn at random when a session starts (a hot reload keeps it): Earthlike, Dual-Vector Foil, Dune, Solaris, Crystallized, Circuit Board, Ink Wash, Blueprint, Tissue Slide, Deep Sky. Each has its own colours, its own mountains and woods, and one motion of its own: drifting clouds, a flattening aftershock, a sandworm under the line, two suns, a drifting glint, a data packet on the trace, distant hills, the plan's grid, drifting nuclei, twinkling stars and meteors. `/lineland` redraws the same line on another sheet at random, `/lineland 沙丘` (or `/lineland dune`) on that one; it works mid-turn too.
@@ -31,13 +31,25 @@ The character is drawn as pixel rects in SVG (`hooks/sprite.ts`), generated from
 
 ## Install
 
-Clone it anywhere, then point Claude Code at the folder in `~/.claude/settings.json`:
+At the prompt of a terminal `claude` session:
 
-```json
-{ "env": { "CLAUDE_CODE_PLUGIN_DIRS": "C:\\path\\to\\nier-ui" } }
+```
+/plugin install linecat --marketplace fivood/linecat
 ```
 
-Or for one session: `claude --plugin-dir /path/to/nier-ui`.
+Answer `y` to add the marketplace, then pick a scope (user scope is first). Installed at user scope, it also loads in the desktop app's Code tab, which is where the cat and the sheets are drawn; a terminal session gets the panels and the usage bars but not the SVG strip.
+
+To work on it from a clone instead, point Claude Code at the folder in `~/.claude/settings.json`:
+
+```json
+{ "env": { "CLAUDE_CODE_PLUGIN_DIRS": "C:\\path\\to\\linecat" } }
+```
+
+Or for one session: `claude --plugin-dir /path/to/linecat`.
+
+## What it reads and sends
+
+It only draws. It reads the session's own usage figures (quota windows and context fill), the names and inputs of tool calls as they run, the stream's phase (thinking, reply, tool input), permission decisions, compaction and turn ends, and keeps a small amount of session state (the line, the chosen sheet, a turn clock). It sends nothing anywhere, makes no network requests, reads and writes no files, and runs no processes. Its hooks on tool calls, permission checks, prompts, the stream, compaction and turns only observe: each passes its event on unchanged, so no call, prompt or permission decision is altered. Only its drawing hooks replace what the app draws, and only on screen; the transcript Claude reads is untouched.
 
 ## Swap the character
 

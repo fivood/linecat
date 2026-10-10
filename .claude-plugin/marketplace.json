@@ -1,0 +1,14 @@
+{
+  "name": "fivood",
+  "owner": {
+    "name": "fivood"
+  },
+  "description": "fivood's Claude Code mods",
+  "plugins": [
+    {
+      "name": "linecat",
+      "source": "./",
+      "description": "A cat walks a line your Claude Code session unfolds, wearing what Claude is doing overhead"
+    }
+  ]
+}

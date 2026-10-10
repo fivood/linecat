@@ -1,1 +1,11 @@
-{ "name": "nier-ui", "version": "0.1.0", "description": "NieR:Automata style panels for messages and tool rows, and a band with Lineland and a usage monitor", "types": "./types/index.d.ts" }
+{
+  "name": "linecat",
+  "displayName": "线国猫 Linecat",
+  "version": "0.2.0",
+  "description": "A cat walks a line your Claude Code session unfolds, wearing what Claude is doing overhead; plus retro paper-panel styling for messages, tool rows and a usage monitor",
+  "author": {
+    "name": "fivood"
+  },
+  "repository": "https://github.com/fivood/linecat",
+  "types": "./types/index.d.ts"
+}

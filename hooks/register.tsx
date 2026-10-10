@@ -5,22 +5,22 @@ import type { Cell, Meter, Run, Scene } from '../types'
 import * as lineland from './lineland'
 import { THEMES, themeOf } from './themes'
 
-// NieR:Automata palette
+// retro menu palette: warm grey paper, dark ink
 const PAPER = '#dad4bb'
 const INK = '#4e4b42'
 const RED = '#b2533e'
 const AMBER = '#c8901e'
-const READ = '#f5f2e8' // light paper for reading, NieR panel body tone
+const READ = '#f5f2e8' // light paper for reading, the panel body tone
 
 const LABEL: Record<string, string> = { five_hour: '5H', seven_day: '7D', spend_limit: 'SPEND' }
 
-const meter = atom({ plugin: 'nier-ui', key: 'meter' } as const, null)
-const open = atom({ plugin: 'nier-ui', key: 'open' } as const, [] as string[])
-const run = atom({ plugin: 'nier-ui', key: 'run' } as const, { startedAt: 0, seconds: 0, tokens: 0 } as Run)
-const line = atom({ plugin: 'nier-ui', key: 'line' } as const, [] as Cell[])
-const scene = atom({ plugin: 'nier-ui', key: 'scene' } as const, null as Scene | null)
+const meter = atom({ plugin: 'linecat', key: 'meter' } as const, null)
+const open = atom({ plugin: 'linecat', key: 'open' } as const, [] as string[])
+const run = atom({ plugin: 'linecat', key: 'run' } as const, { startedAt: 0, seconds: 0, tokens: 0 } as Run)
+const line = atom({ plugin: 'linecat', key: 'line' } as const, [] as Cell[])
+const scene = atom({ plugin: 'linecat', key: 'scene' } as const, null as Scene | null)
 // the Lineland sheet this session drew; kept in session state so a hot reload keeps it
-const sheet = atom({ plugin: 'nier-ui', key: 'theme' } as const, null as string | null)
+const sheet = atom({ plugin: 'linecat', key: 'theme' } as const, null as string | null)
 
 const bar = (pct: number, cells = 12) => {
   const n = Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)))
@@ -307,7 +307,7 @@ export const register: Register = on => {
     )
   })
 
-  // transcript: NieR panels, dark title bar over a light paper body
+  // transcript: paper panels, dark title bar over a light paper body
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {
     const { Box, Markdown, Text } = $.ui.resolve(e)
     return (

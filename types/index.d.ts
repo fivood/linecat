@@ -27,6 +27,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'nier-ui': { meter: Meter | null; open: string[]; run: Run; line: Cell[]; scene: Scene | null; theme: string | null }
+    linecat: { meter: Meter | null; open: string[]; run: Run; line: Cell[]; scene: Scene | null; theme: string | null }
   }
 }
