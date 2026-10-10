@@ -200,61 +200,60 @@ function bitmap(r: Draw, rows: string[], x: number, y: number, c: string) {
   })
 }
 
-// a speech bubble (tail) or a thought bubble (cut corners, a trail of dots), 11x11, its icon drawn by `fill`
-function bubble(r: Draw, x: number, y: number, edge: string, isThought: boolean, fill: (ix: number, iy: number) => void) {
-  if (isThought) {
-    r(x + 1, y, 9, 11, edge); r(x, y + 1, 11, 9, edge)
-    r(x + 2, y + 1, 7, 9, PAPER); r(x + 1, y + 2, 9, 7, PAPER)
-    r(x + 3, y + 12, 2, 2, edge); r(x + 1, y + 15, 1, 1, edge)
-  } else {
-    r(x, y, 11, 11, edge)
-    r(x + 1, y + 1, 9, 9, PAPER)
-    r(x + 4, y + 11, 3, 1, edge); r(x + 5, y + 12, 1, 1, edge)
-  }
-  fill(x + 2, y + 2)
+// marks drawn straight over the head, with no frame: each first gets a one-pixel paper halo, so it
+// reads on a light band and on a dark one alike
+function haloed(r: Draw, paint: (m: Draw) => void) {
+  const marks: [number, number, number, number, string][] = []
+  paint((x, y, w, h, c) => marks.push([x, y, w, h, c]))
+  for (const [x, y, w, h] of marks) r(x - 1, y - 1, w + 2, h + 2, PAPER)
+  for (const [x, y, w, h, c] of marks) r(x, y, w, h, c)
 }
 
 function overhead(r: Draw, v: Scene, cx: number) {
   const t = v.t
-  // the head sits about two thirds up the sprite's box
-  const x = Math.round(cx - 5), y = Math.max(1, v.catY - SPRITE_SIZE - 8)
+  // a 7x7 mark a few pixels above the ears (the head reaches about 18px up the sprite's box)
+  const x = Math.round(cx - 3), y = Math.max(2, v.catY - SPRITE_SIZE - 5)
   if (v.isAsleep) {
-    // z's drifting up from the sleeper
-    for (let k = 0; k < 3; k++) {
-      const p = (t / 2 + k / 3) % 1, zx = x + 8 + Math.round(p * 6), zy = Math.round(v.catY - 14 - p * 14)
-      if (zy > 0) bitmap(r, ['###', '.#.', '###'], zx, zy, '#8a8676')   // a mid tone: legible on a light band and a dark one
-    }
-    return
-  }
-  const icon = (name: string, c = INK) => (ix: number, iy: number) => bitmap(r, ICONS[name]!, ix, iy, c)
-  switch (v.status) {
-    case 'idle': return
-    case 'prompt': return bubble(r, x, y, INK, false, icon('bang'))
-    case 'requesting': return bubble(r, x, y, INK, false, (ix, iy) => {
-      // signal bars filling up
-      const n = 1 + (Math.floor(t * 3) % 4)
-      for (let k = 0; k < n; k++) r(ix + k * 2, iy + 6 - k * 2, 1, k * 2 + 1, INK)
-    })
-    case 'thinking': return bubble(r, x, y, INK, true, (ix, iy) => {
-      // three dots lighting one after another
-      const n = Math.floor(t * 3) % 4
-      for (let k = 0; k < 3; k++) r(ix + k * 3, iy + 3, 1, 1, k < n ? INK : '#cfcab8')
-    })
-    case 'responding': return bubble(r, x, y, INK, false, (ix, iy) => {
-      // lines typing themselves out
+    // z's drifting up and away from the sleeper, starting clear of its head
+    return haloed(r, m => {
       for (let k = 0; k < 3; k++) {
-        const len = Math.min(7, Math.max(0, Math.floor(t * 8 - k * 4) % 12))
-        if (len) r(ix, iy + 1 + k * 2, len, 1, INK)
+        const p = (t / 2 + k / 3) % 1, zx = Math.round(cx + 6 + p * 8), zy = Math.round(v.catY - 18 - p * 16)
+        if (zy > 1) bitmap(m, ['###', '.#.', '###'], zx, zy, INK)
       }
     })
-    case 'preparing': return bubble(r, x, y, INK, false, icon(v.tool ? iconOfTool(v.tool) : 'gear', Math.floor(t * 4) % 2 ? INK : '#8a8676'))
-    case 'tool': return bubble(r, x, y, INK, false, icon(iconOfTool(v.tool), v.tool === 'AskUserQuestion' ? AMBER : INK))
-    case 'permission': return bubble(r, x, y, Math.floor(t * 2) % 2 ? AMBER : INK, false, icon('ask', AMBER))
-    case 'error': return bubble(r, x, y, RED, false, icon('bang', RED))
-    case 'denied': return bubble(r, x, y, RED, false, icon('cross', RED))
-    case 'interrupted': return bubble(r, x, y, INK, false, icon('stop'))
-    case 'compact': return bubble(r, x, y, INK, false, icon(Math.floor(t) % 2 ? 'glassB' : 'glassA'))
   }
+  const icon = (name: string, c = INK) => (m: Draw) => bitmap(m, ICONS[name]!, x, y, c)
+  const paint = ((): ((m: Draw) => void) | null => {
+    switch (v.status) {
+      case 'idle': return null
+      case 'prompt': return icon('bang')
+      // signal bars filling up
+      case 'requesting': return m => {
+        const n = 1 + (Math.floor(t * 3) % 4)
+        for (let k = 0; k < n; k++) m(x + k * 2, y + 6 - k * 2, 1, k * 2 + 1, INK)
+      }
+      // three dots lighting one after another
+      case 'thinking': return m => {
+        const n = Math.floor(t * 3) % 4
+        for (let k = 0; k < 3; k++) m(x - 1 + k * 3, y + 3, 2, 2, k < n ? INK : '#a8a292')
+      }
+      // lines typing themselves out
+      case 'responding': return m => {
+        for (let k = 0; k < 3; k++) {
+          const len = Math.min(7, Math.max(0, Math.floor(t * 8 - k * 4) % 12))
+          if (len) m(x, y + 1 + k * 2, len, 1, INK)
+        }
+      }
+      case 'preparing': return icon(v.tool ? iconOfTool(v.tool) : 'gear', Math.floor(t * 4) % 2 ? INK : '#8a8676')
+      case 'tool': return icon(iconOfTool(v.tool), v.tool === 'AskUserQuestion' ? AMBER : INK)
+      case 'permission': return icon('ask', Math.floor(t * 2) % 2 ? AMBER : '#e0b450')
+      case 'error': return icon('bang', RED)
+      case 'denied': return icon('cross', RED)
+      case 'interrupted': return icon('stop')
+      case 'compact': return icon(Math.floor(t) % 2 ? 'glassB' : 'glassA')
+    }
+  })()
+  if (paint) haloed(r, paint)
 }
 
 // --- drawing ---------------------------------------------------------------------------------
