@@ -71,17 +71,30 @@ const peek = (output: unknown) => {
 const status = (c: { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }) =>
   c.isRunning ? 'RUNNING' : c.isInterrupted ? 'ABORTED' : c.isErrored ? 'ERROR' : ''
 
+// a solid title bar over a panel
+function titleBar(ui: { Box: any; Text: any }, t: string) {
+  const { Box, Text } = ui
+  return (
+    <Box backgroundColor={BAR} paddingX={2}>
+      <Text color={BAR_TEXT} bold>{t}</Text>
+    </Box>
+  )
+}
+
 // the /lineland command, described in the language now in use
 const registerCommand = ($: EngineInterface) =>
   $.command.register({
     name: 'lineland',
     description: tr(W.command.description),
-    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto] [monitor|panels on|off]',
+    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto] [monitor|panels on|off] [place band|pane]',
     immediate: true,
   })
 
 // whether the language is known: picked in the settings, or settled by auto
 let isSettled = false
+// where the line is drawn: in the band above the prompt, or in a side pane of its own
+const PANE = 'lineland'
+let place: 'band' | 'pane' = 'band'
 
 async function settle($: EngineInterface, l: Lang) {
   isSettled = true
@@ -143,6 +156,8 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     isMonitorOn = isMonitorAllowed && (await $.store.get('monitor')) !== false
     isRestyleOn = isRestyleAllowed && (await $.store.get('restyle')) !== false
+    // pane in the settings is pane; otherwise a choice made with /lineland place (in the store)
+    place = options.place === 'pane' || (await $.store.get('place')) === 'pane' ? 'pane' : 'band'
     const u = await $.session.usage()
     await update($, meter, (m): Meter => ({ limits: u.rateLimits.length ? u.rateLimits : m?.limits ?? [], ctx: u.context.percent ?? m?.ctx }))
 
@@ -168,6 +183,7 @@ export const register: Register = (on, options) => {
     }
     lineland.load(await read($, line), id)
     await registerCommand($)
+    if (place === 'pane') void $.ui.open({ id: PANE, title: tr(W.place.title) })
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
@@ -184,6 +200,18 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'lineland' }, async ($, e) => {
     const [head = '', ...rest] = e.args.trim().split(/\s+/)
     if (/^(lang|language|语言|語言|言語)$/i.test(head)) return { text: await switchLang($, rest.join(' ')) }
+    // /lineland place band|pane: the line in the band, or in a side pane that no other plugin contends for
+    if (/^(place|where|位置)$/i.test(head)) {
+      const v = (rest[0] ?? '').toLowerCase()
+      if (v !== 'band' && v !== 'pane') return { text: tr(W.place.which) }
+      await $.store.set('place', v)
+      if (v === 'band' && options.place === 'pane') return { text: tr(W.place.band) + ' ' + tr(W.place.pinned) }
+      place = v
+      if (v === 'pane') await $.ui.open({ id: PANE, title: tr(W.place.title) })
+      else await $.ui.close({ id: PANE })
+      $.ui.invalidate('ui.render')
+      return { text: tr(v === 'pane' ? W.place.pane : W.place.band) }
+    }
     // /lineland monitor on|off, /lineland panels on|off: kept in the store like the language
     const which = /^(monitor|meter)$/i.test(head) ? 'monitor' : /^(panels?|restyle)$/i.test(head) ? 'restyle' : null
     if (which) {
@@ -265,12 +293,38 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // the STANDBY column: the line, its title bar and the status footer; drawn in the band or the pane
+  function standby(ui: ReturnType<EngineInterface['ui']['resolve']>, sc: Scene) {
+    const { Box, Text } = ui
+    return (
+      <Box flexDirection="column" flexGrow={1}>
+        {titleBar(ui, 'STANDBY // ' + tr(themeOf(sc.theme).name))}
+        {'Svg' in ui ? <ui.Svg source={lineland.draw(sc)} alt="Lineland" /> : null}
+        <Box flexGrow={1} />
+        <Box justifyContent="center">
+          <Text
+            color={sc.status === 'error' || sc.status === 'denied' ? RED : sc.status === 'permission' ? AMBER : TEXT}
+            dimColor={sc.status === 'idle'}
+            wrap="truncate-end"
+          >
+            {sc.said ? sc.label + ' · ' + sc.said : sc.label}
+          </Text>
+        </Box>
+      </Box>
+    )
+  }
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // what the plugins beneath drew here: kept and shown with ours, never swallowed, so another
+    // plugin's band survives beside this one
+    const below = await next(e)
+    if (e.props.hasSurvey) return below
     const m = await read($, meter)
     const ui = $.ui.resolve(e)
-    const sc = 'Svg' in ui ? await read($, scene) : null
-    // nothing of ours to draw: the monitor off with no line here (the terminal), or on with no numbers yet
-    if (e.props.hasSurvey || (isMonitorOn ? m === null : !sc)) return next(e)
+    const sc = place === 'band' && 'Svg' in ui ? await read($, scene) : null
+    const hasMonitor = isMonitorOn && m !== null
+    // nothing of ours to draw: the line elsewhere or not drawable here, and no monitor
+    if (!sc && !hasMonitor) return below
 
     const { Box, Text } = ui
     const rows = !m ? [] : [
@@ -278,35 +332,18 @@ export const register: Register = (on, options) => {
       ...(m.ctx === undefined ? [] : [{ label: 'CTX', pct: m.ctx, tail: '' }]),
     ]
 
-    const title = (t: string) => (
-      <Box backgroundColor={BAR} paddingX={2}>
-        <Text color={BAR_TEXT} bold>{t}</Text>
-      </Box>
-    )
-
-    return (
+    const ours = (
       // both halves start from zero width and split the row 6:4, whatever their content: the usage
       // half is narrow until the quota windows arrive, and would otherwise cede room
       <Box flexDirection="row" gap={1}>
-        {'Svg' in ui && sc ? (
+        {sc ? (
           <Box flexDirection="column" flexGrow={3} width={0}>
-            {title('STANDBY // ' + tr(themeOf(sc.theme).name))}
-            <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
-            <Box flexGrow={1} />
-            <Box justifyContent="center">
-              <Text
-                color={sc.status === 'error' || sc.status === 'denied' ? RED : sc.status === 'permission' ? AMBER : TEXT}
-                dimColor={sc.status === 'idle'}
-                wrap="truncate-end"
-              >
-                {sc.said ? sc.label + ' · ' + sc.said : sc.label}
-              </Text>
-            </Box>
+            {standby(ui, sc)}
           </Box>
         ) : null}
-        {isMonitorOn ? (
+        {hasMonitor ? (
           <Box flexDirection="column" flexGrow={2} width={0}>
-            {title('RESOURCE MONITOR')}
+            {titleBar(ui, 'RESOURCE MONITOR')}
             {rows.length === 0 ? (
               <Box paddingX={2} paddingY={1}>
                 <Text color={TEXT}>NO DATA. AWAITING FIRST RESPONSE.</Text>
@@ -338,6 +375,22 @@ export const register: Register = (on, options) => {
         ) : null}
       </Box>
     )
+    return below ? (
+      <Box flexDirection="column">
+        {below}
+        {ours}
+      </Box>
+    ) : (
+      ours
+    )
+  })
+
+  // the line in a side pane of its own, when placed there
+  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    const ui = $.ui.resolve(e)
+    const sc = 'Svg' in ui ? await read($, scene) : null
+    if (!sc) return <ui.Text dimColor>{tr(W.place.desktopOnly)}</ui.Text>
+    return standby(ui, sc)
   })
 
   // our own turn clock: the desktop keeps its seconds and tokens to itself

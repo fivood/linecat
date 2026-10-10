@@ -32,6 +32,16 @@
       "title": "Retro panels / 复古面板 / レトロパネル",
       "description": "Paper panels for messages, tool rows and the thinking line. Off, the app draws them its own way and only the band remains.",
       "default": true
+    },
+    "place": {
+      "type": "string",
+      "title": "Lineland position / 线国位置 / 線国の位置",
+      "description": "Where the cat and its line are drawn: band, above the prompt beside the usage monitor, or pane, a side pane of their own that no other plugin contends for.",
+      "default": "band",
+      "options": [
+        "band",
+        "pane"
+      ]
     }
   }
 }

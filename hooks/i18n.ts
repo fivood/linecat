@@ -72,6 +72,23 @@ export const W = {
       en: '(It is off in the settings; turn it on in /config first.)',
     },
   },
+  // /lineland place band|pane: where the line is drawn
+  place: {
+    title: { zh: '线国', ja: '線国', en: 'Lineland' },
+    band: { zh: '线国回到输入框上方的横栏。', ja: '線国を入力欄の上の帯に戻した。', en: 'Lineland is back in the band above the prompt.' },
+    pane: {
+      zh: '线国挪到了侧边面板，横栏留给别的插件。',
+      ja: '線国をサイドパネルに移した。帯はほかのプラグインに譲る。',
+      en: 'Lineland moved to a side pane, leaving the band to other plugins.',
+    },
+    which: { zh: '用 band 或 pane，例如 /lineland place pane', ja: 'band か pane を指定する。例：/lineland place pane', en: 'Use band or pane, as in /lineland place pane' },
+    pinned: {
+      zh: '（设置里固定在侧边面板，要先在 /config 里改回 band。）',
+      ja: '（設定でサイドパネルに固定されている。先に /config で band に戻す必要がある。）',
+      en: '(The settings pin it to the pane; set it back to band in /config first.)',
+    },
+    desktopOnly: { zh: '线国只画在桌面版里。', ja: '線国はデスクトップ版にだけ描かれる。', en: 'Lineland is drawn in the desktop app only.' },
+  },
   // /lineland lang …; each reply is drawn in the language just picked
   lang: {
     set: { zh: '线国猫现在说中文。', ja: '線国猫は日本語で話すようになった。', en: 'Linecat now speaks English.' },
