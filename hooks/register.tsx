@@ -1,7 +1,9 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Cell, Meter, Run, Scene } from '../types'
+import type { EngineInterface } from 'claude-code'
+import type { Cell, Lang, Meter, Run, Scene } from '../types'
+import { fill, fromSetting, fromText, setLang, tr, W } from './i18n'
 import * as lineland from './lineland'
 import { THEMES, themeOf } from './themes'
 
@@ -21,17 +23,27 @@ const line = atom({ plugin: 'linecat', key: 'line' } as const, [] as Cell[])
 const scene = atom({ plugin: 'linecat', key: 'scene' } as const, null as Scene | null)
 // the Lineland sheet this session drew; kept in session state so a hot reload keeps it
 const sheet = atom({ plugin: 'linecat', key: 'theme' } as const, null as string | null)
+// the language `auto` settled on this session, kept for the same reason
+const settled = atom({ plugin: 'linecat', key: 'lang' } as const, null as Lang | null)
 
 const bar = (pct: number, cells = 12) => {
   const n = Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)))
   return '■'.repeat(n) + '□'.repeat(cells - n)
 }
 
-const hhmm = (iso?: string) => {
+// when a quota window resets, local time; the date too when it is not today (the 7-day window,
+// or a 5-hour one past midnight)
+const resetAt = (iso?: string) => {
   if (!iso) return ''
   const d = new Date(iso)
-  return 'RESET ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+  const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+  const isToday = d.toDateString() === new Date().toDateString()
+  return 'RESET ' + (isToday ? '' : `${d.getMonth() + 1}/${d.getDate()} `) + hm
 }
+
+// a sheet by its id or its name in any language
+const sheetNamed = (want: string) =>
+  THEMES.find(t => t.id === want || Object.values(t.name).some(n => n.toLowerCase() === want))
 
 type Rec = Record<string, unknown>
 
@@ -50,14 +62,55 @@ const peek = (output: unknown) => {
 const status = (c: { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }) =>
   c.isRunning ? 'RUNNING' : c.isInterrupted ? 'ABORTED' : c.isErrored ? 'ERROR' : ''
 
-export const register: Register = on => {
+// the /lineland command, described in the language now in use
+const registerCommand = ($: EngineInterface) =>
+  $.command.register({
+    name: 'lineland',
+    description: tr(W.command.description),
+    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + ']',
+    immediate: true,
+  })
+
+// whether the language is known: picked in the settings, or settled by auto
+let isSettled = false
+
+async function settle($: EngineInterface, l: Lang) {
+  isSettled = true
+  setLang(l)
+  await update($, settled, () => l)
+  await registerCommand($)
+}
+
+// auto: Claude Code's own response-language setting, if it has a row for one
+async function settleFromConfig($: EngineInterface) {
+  const rows = await $.config.list()
+  const found = rows
+    .filter(r => /language/i.test(r.key) && r.provider.plugin === 'engine')
+    .map(r => fromSetting(r.value))
+    .find(Boolean)
+  if (found) await settle($, found)
+}
+
+export const register: Register = (on, options) => {
   let walker: { cancel: () => void } | undefined
   // whether a main-thread turn runs, so a compaction knows what to go back to
   let isTurnOn = false
+  // the language setting: a fixed pick, or null for auto until something settles it
+  const picked = fromSetting(options.language)
+  isSettled = picked !== null
+  if (picked) setLang(picked)
 
   on('session.start', async ($, e, next) => {
     const u = await $.session.usage()
     await update($, meter, (): Meter => ({ limits: u.rateLimits, ctx: u.context.percent }))
+
+    if (!isSettled) {
+      const kept = await read($, settled)
+      if (kept) {
+        isSettled = true
+        setLang(kept)
+      } else await settleFromConfig($)
+    }
 
     // a new session draws a sheet at random; a reload keeps the one it drew
     let id = await read($, sheet)
@@ -68,12 +121,7 @@ export const register: Register = on => {
       lineland.say(pick.intro)
     }
     lineland.load(await read($, line), id)
-    await $.command.register({
-      name: 'lineland',
-      description: '给线国换一张纸：不带参数随机换，或指定地貌名',
-      argumentHint: '[地球|二向箔|沙丘|索拉里斯|晶化|电路板|水墨|蓝图|切片|深空]',
-      immediate: true,
-    })
+    await registerCommand($)
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
@@ -91,14 +139,14 @@ export const register: Register = on => {
     const want = e.args.trim().toLowerCase()
     const current = await read($, sheet)
     const others = THEMES.filter(t => t.id !== current)
-    const pick = want
-      ? THEMES.find(t => t.id === want || t.name === want)
-      : others[Math.floor(Math.random() * others.length)]
-    if (!pick) return { text: `没有「${e.args.trim()}」这张纸。可选：${THEMES.map(t => t.name).join('、')}` }
+    const pick = want ? sheetNamed(want) : others[Math.floor(Math.random() * others.length)]
+    if (!pick) {
+      return { text: fill(W.command.unknown, { want: e.args.trim(), all: THEMES.map(t => tr(t.name)).join(' / ') }) }
+    }
     await update($, sheet, () => pick.id)
     lineland.setTheme(pick.id)
     lineland.say(pick.intro)
-    return { text: `线国换成了「${pick.name}」。` }
+    return { text: fill(W.command.switched, { name: tr(pick.name) }) }
   })
 
   // Lineland: every tool call grows the line; the main thread's calls also set what the character
@@ -139,8 +187,14 @@ export const register: Register = on => {
     }
   })
 
-  on('prompt.submit', ($, e, next) => {
+  on('prompt.submit', async ($, e, next) => {
     lineland.flash('prompt', '', 1.5)
+    // auto, with nothing settled yet: the script of the person's first prompt. Prompts a program
+    // made (a task notification, a channel message) open with a tag and are passed over.
+    if (!isSettled && !e.text.trimStart().startsWith('<')) {
+      const found = fromText(e.text)
+      if (found) await settle($, found)
+    }
     return next(e)
   })
 
@@ -156,7 +210,7 @@ export const register: Register = on => {
     const ui = $.ui.resolve(e)
     const { Box, Text } = ui
     const rows = [
-      ...m.limits.map(l => ({ label: LABEL[l.kind] ?? l.kind.toUpperCase(), pct: l.percentUsed, tail: hhmm(l.resetsAt) })),
+      ...m.limits.map(l => ({ label: LABEL[l.kind] ?? l.kind.toUpperCase(), pct: l.percentUsed, tail: resetAt(l.resetsAt) })),
       ...(m.ctx === undefined ? [] : [{ label: 'CTX', pct: m.ctx, tail: '' }]),
     ]
 
@@ -171,7 +225,7 @@ export const register: Register = on => {
       <Box flexDirection="row" gap={2}>
         {'Svg' in ui && sc ? (
           <Box flexDirection="column" flexGrow={1}>
-            {title('STANDBY // ' + themeOf(sc.theme).name)}
+            {title('STANDBY // ' + tr(themeOf(sc.theme).name))}
             <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
             <Box flexGrow={1} />
             <Box justifyContent="center">

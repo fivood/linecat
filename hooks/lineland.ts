@@ -6,6 +6,7 @@
 
 import type { Cell, Scene, Status } from '../types'
 import { SPRITE_SIZE, SPRITES } from './sprite'
+import { tr, W as WORDS, type Words } from './i18n'
 import { drawTree, themeOf, type Draw } from './themes'
 
 export const FPS = 8
@@ -16,14 +17,14 @@ const PAPER = '#fbfaf7', INK = '#4e4b42', AMBER = '#c8901e', RED = '#b2533e'
 // per-pose frame time: the export's 100ms breathes too fast at rest
 const MS: Record<string, number> = { idle_front: 600, idle_back: 600, sleep_front: 900, sleep_back: 900 }
 
-const GROW: Record<string, [Cell[], string]> = {
-  read: [['water', 'water'], '看过的地方积成了水。'],
-  run: [['rock', 'peak', 'rock'], '线上推起了一座山。'],
-  edit: [['forest', 'forest'], '改写过的地方长出了树。'],
-  error: [['rift'], '出错了。线被划破了一道。'],
-  other: [['sand'], '线上落了一层沙。'],
+const GROW: Record<keyof typeof WORDS.grow, Cell[]> = {
+  read: ['water', 'water'],
+  run: ['rock', 'peak', 'rock'],
+  edit: ['forest', 'forest'],
+  error: ['rift'],
+  other: ['sand'],
 }
-const kindOf = (tool: string, isBad: boolean) =>
+const kindOf = (tool: string, isBad: boolean): keyof typeof GROW =>
   isBad ? 'error'
   : /^(Read|Grep|Glob|LS|WebFetch|WebSearch|NotebookRead)$/.test(tool) ? 'read'
   : /^(Bash|PowerShell)$/.test(tool) ? 'run'
@@ -58,7 +59,7 @@ const LABEL: Record<Status, string> = {
 // the module's own; a reload starts it over from the stored line
 const sim = {
   cells: [] as Cell[], t: 0, x: 12, dir: 1, target: 12, rest: 0, anim: 0,
-  said: '', sayT: 0, lastEvent: 0, saidKind: {} as Record<string, number>, theme: 'earth',
+  said: null as Words | null, sayT: 0, lastEvent: 0, saidKind: {} as Record<string, number>, theme: 'earth',
 }
 
 export const cells = () => sim.cells
@@ -68,7 +69,8 @@ export function load(stored: readonly Cell[], theme: string) {
 }
 // redraw the same line on another sheet
 export const setTheme = (id: string) => { sim.theme = id }
-export function say(words: string) {
+// kept in every language and translated when drawn, so a language settled later still applies
+export function say(words: Words) {
   sim.said = words
   sim.sayT = 10
 }
@@ -76,14 +78,13 @@ export function say(words: string) {
 // a tool call grows the line where it ends and sends the character there
 export function grow(tool: string, isBad: boolean) {
   const kind = kindOf(tool, isBad)
-  const [add, words] = GROW[kind]!
-  sim.cells.push(...add)
+  sim.cells.push(...GROW[kind])
   sim.lastEvent = sim.t
   sim.target = sim.cells.length * CELL - 4
   sim.rest = 0
   if (sim.t - (sim.saidKind[kind] ?? -99) > 60) {
     sim.saidKind[kind] = sim.t
-    say(words)
+    say(WORDS.grow[kind])
   }
 }
 
@@ -120,7 +121,7 @@ export function tick(dt: number): boolean {
     sim.x += sim.dir * Math.min(Math.abs(d), (SPEED + Math.max(0, Math.abs(d) - 40) * 0.5) * dt)
   }
   sim.anim += dt
-  if ((sim.sayT -= dt) <= 0) sim.said = ''
+  if ((sim.sayT -= dt) <= 0) sim.said = null
 
   if (sim.x > end - 2 && sim.cells.length < 5000) {
     sim.cells.push('grass')
@@ -156,7 +157,7 @@ export function scene(): Scene {
     tool,
     isAsleep,
     label: isAsleep ? 'SLEEP MODE' : tool ? `${LABEL[status]}: ${tool.replace(/^mcp__([^_]+)__/, '$1/')}` : LABEL[status],
-    said: sim.said,
+    said: sim.said ? tr(sim.said) : '',
     theme: sim.theme,
   }
 }
@@ -216,7 +217,7 @@ function bubble(r: Draw, x: number, y: number, edge: string, isThought: boolean,
 function overhead(r: Draw, v: Scene, cx: number) {
   const t = v.t
   // the head sits about two thirds up the sprite's box
-  const x = Math.round(cx - 5), y = Math.max(1, v.catY - SPRITE_SIZE - 6)
+  const x = Math.round(cx - 5), y = Math.max(1, v.catY - SPRITE_SIZE - 8)
   if (v.isAsleep) {
     // z's drifting up from the sleeper
     for (let k = 0; k < 3; k++) {

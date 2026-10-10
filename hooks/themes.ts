@@ -3,14 +3,15 @@
 // motion of its own. A session picks one at random when it starts.
 
 import type { Cell } from '../types'
+import type { Words } from './i18n'
 
 // a rect in the view's art pixels
 export type Draw = (x: number, y: number, w: number, h: number, c: string) => void
 
 export type Theme = {
   id: string
-  name: string
-  intro: string
+  name: Words
+  intro: Words
   bg?: string                         // the sheet behind the line; absent, the band shows through
   cell: Record<Cell, string>          // the ground strip under each cell
   water: [string, string]             // body, glint
@@ -33,7 +34,9 @@ const hash = (n: number) => {
 
 export const THEMES: Theme[] = [
   {
-    id: 'earth', name: '地球', intro: '这张纸上画的像是一颗有水有山的星球。',
+    id: 'earth',
+    name: { zh: '地球', ja: '地球', en: 'Earthlike' },
+    intro: { zh: '这张纸上画的像是一颗有水有山的星球。', ja: 'この紙に描かれているのは、水と山のある惑星のようだ。', en: 'This sheet looks like a drawing of a planet, with water and mountains.' },
     cell: { grass: '#80ae5c', sand: '#e2d09c', water: '#528cbe', rock: '#8a8276', peak: '#8a8276', forest: '#60944c', rift: '#2c223a' },
     water: ['#528cbe', '#7ab4dc'], rift: ['#2c223a', '#966edc'],
     rock: '#9c9486', peak: '#746e66', cap: '#d6e2f0', peakStyle: 'mount',
@@ -47,7 +50,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'foil', name: '二向箔', intro: '这张纸的原材料是一整个星系：压平，铺开，裁成现在这个尺寸。',
+    id: 'foil',
+    name: { zh: '二向箔', ja: '二向箔', en: 'Dual-Vector Foil' },
+    intro: { zh: '这张纸的原材料是一整个星系：压平，铺开，裁成现在这个尺寸。', ja: 'この紙の原料はひとつの星系まるごと。平らにのばして、広げて、この大きさに切りそろえた。', en: 'This sheet’s raw material was an entire star system: flattened, spread out, trimmed to size.' },
     cell: { grass: '#b0aabe', sand: '#dcc4aa', water: '#5878c4', rock: '#a87860', peak: '#846054', forest: '#46966e', rift: '#14141c' },
     water: ['#5878c4', '#8caae6'], rift: ['#14141c', '#c8c8ff'],
     rock: '#a87860', peak: '#846054', cap: '#d2aa8c', peakStyle: 'contour',
@@ -59,7 +64,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'dune', name: '沙丘', intro: '这张纸是一整片沙漠。水在这里比什么都贵。',
+    id: 'dune',
+    name: { zh: '沙丘', ja: '砂丘', en: 'Dune' },
+    intro: { zh: '这张纸是一整片沙漠。水在这里比什么都贵。', ja: 'この紙は一面の砂漠。ここでは水が何より高い。', en: 'This sheet is one long desert. Water is worth more than anything here.' },
     cell: { grass: '#ce9652', sand: '#deb06e', water: '#ded6c4', rock: '#96705a', peak: '#96705a', forest: '#d67830', rift: '#462e24' },
     water: ['#ded6c4', '#f8f4ec'], rift: ['#462e24', '#c88c50'],
     rock: '#96705a', peak: '#6e5042', cap: '#eee2d2', peakStyle: 'mount',
@@ -74,7 +81,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'solaris', name: '索拉里斯', intro: '这张纸的大部分是海，而且那片海好像在看我。',
+    id: 'solaris',
+    name: { zh: '索拉里斯', ja: 'ソラリス', en: 'Solaris' },
+    intro: { zh: '这张纸的大部分是海，而且那片海好像在看我。', ja: 'この紙のほとんどは海で、その海はこちらを見ているらしい。', en: 'Most of this sheet is ocean, and the ocean seems to be watching me.' },
     cell: { grass: '#c48caa', sand: '#c8dcd2', water: '#3c8c8c', rock: '#96a0aa', peak: '#96a0aa', forest: '#965aa0', rift: '#101e24' },
     water: ['#3c8c8c', '#78c8be'], rift: ['#101e24', '#78e6d2'],
     rock: '#96a0aa', peak: '#be6e5a', cap: '#78a0e6', peakStyle: 'mount',
@@ -86,7 +95,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'crystal', name: '晶化', intro: '这张纸上的东西都在慢慢变成晶体。',
+    id: 'crystal',
+    name: { zh: '晶化', ja: '結晶化', en: 'Crystallized' },
+    intro: { zh: '这张纸上的东西都在慢慢变成晶体。', ja: 'この紙の上のものは、どれもゆっくり結晶になっていく。', en: 'Everything on this sheet is slowly turning to crystal.' },
     cell: { grass: '#96c8be', sand: '#e2ded6', water: '#82b4d2', rock: '#50505c', peak: '#50505c', forest: '#5aa0aa', rift: '#1e1a28' },
     water: ['#82b4d2', '#c8e6fa'], rift: ['#1e1a28', '#f0f0ff'],
     rock: '#50505c', peak: '#8c78b4', cap: '#dcc8fa', peakStyle: 'facet',
@@ -98,7 +109,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'pcb', name: '电路板', intro: '这张纸是一块电路板。那段对话大概就是在这样的东西上跑起来的。',
+    id: 'pcb',
+    name: { zh: '电路板', ja: '回路基板', en: 'Circuit Board' },
+    intro: { zh: '这张纸是一块电路板。那段对话大概就是在这样的东西上跑起来的。', ja: 'この紙は回路基板。あの会話もきっとこういうものの上で動いていた。', en: 'This sheet is a circuit board. The conversation probably ran on something like it.' },
     bg: '#1a643a',
     cell: { grass: '#40985a', sand: '#e8ece2', water: '#d8aa52', rock: '#2c2c32', peak: '#2c2c32', forest: '#40985a', rift: '#140e0a' },
     water: ['#d8aa52', '#f6d890'], rift: ['#140e0a', '#ff963c'],
@@ -111,7 +124,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'ink', name: '水墨', intro: '这张纸是一幅水墨，一处一处的小景拼起来的。墨还没干。',
+    id: 'ink',
+    name: { zh: '水墨', ja: '水墨', en: 'Ink Wash' },
+    intro: { zh: '这张纸是一幅水墨，一处一处的小景拼起来的。墨还没干。', ja: 'この紙は一幅の水墨画。小さな景色をつなぎ合わせてある。墨はまだ乾いていない。', en: 'This sheet is an ink painting, pieced together from one small scene after another. The ink is still wet.' },
     bg: '#f4f2ec',
     cell: { grass: '#646460', sand: '#c4c0b8', water: '#e8e6e0', rock: '#929090', peak: '#929090', forest: '#646460', rift: '#1a181a' },
     water: ['#e8e6e0', '#969698'], rift: ['#1a181a', '#c43428'],
@@ -129,7 +144,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'blueprint', name: '蓝图', intro: '这张纸是一张蓝图，画的是一座地下迷宫。什么都还没造，但每间房都标好了尺寸。',
+    id: 'blueprint',
+    name: { zh: '蓝图', ja: '青図', en: 'Blueprint' },
+    intro: { zh: '这张纸是一张蓝图，画的是一座地下迷宫。什么都还没造，但每间房都标好了尺寸。', ja: 'この紙は地下迷宮の青図。まだ何も建っていないが、どの部屋にも寸法が書いてある。', en: 'This sheet is a blueprint of an underground maze. Nothing has been built yet, but every room has its dimensions.' },
     bg: '#1e4e92',
     cell: { grass: '#e2ecff', sand: '#c8dcfa', water: '#1c3e80', rock: '#e2ecff', peak: '#e2ecff', forest: '#e2ecff', rift: '#102042' },
     water: ['#1c3e80', '#8cb0e6'], rift: ['#102042', '#f06450'],
@@ -142,7 +159,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'slide', name: '切片', intro: '这张纸是一片染过色的切片，粉的是细胞质，紫的是细胞核。',
+    id: 'slide',
+    name: { zh: '切片', ja: '組織切片', en: 'Tissue Slide' },
+    intro: { zh: '这张纸是一片染过色的切片，粉的是细胞质，紫的是细胞核。', ja: 'この紙は染色した組織切片。ピンクは細胞質、紫は細胞核。', en: 'This sheet is a stained tissue slice: pink for cytoplasm, purple for nuclei.' },
     bg: '#f0dbe2',
     cell: { grass: '#d6a8bc', sand: '#d4aaba', water: '#f4e9ec', rock: '#e0bcc6', peak: '#e0bcc6', forest: '#c890b0', rift: '#5a1432' },
     water: ['#f4e9ec', '#c83a4a'], rift: ['#5a1432', '#fac8dc'],
@@ -157,7 +176,9 @@ export const THEMES: Theme[] = [
     },
   },
   {
-    id: 'sky', name: '深空', intro: '这张纸是透明的。展开的地方，能看见它背后的天空。',
+    id: 'sky',
+    name: { zh: '深空', ja: '深宇宙', en: 'Deep Sky' },
+    intro: { zh: '这张纸是透明的。展开的地方，能看见它背后的天空。', ja: 'この紙は透けている。広げたところから、その向こうの空が見える。', en: 'This sheet is transparent. Wherever it unfolds, I can see the sky behind it.' },
     bg: '#0a0c1a',
     cell: { grass: '#3c4470', sand: '#5a5e78', water: '#181c2a', rock: '#8c7864', peak: '#8c7864', forest: '#784670', rift: '#1e1432' },
     water: ['#181c2a', '#5a6488'], rift: ['#1e1432', '#b496ff'],

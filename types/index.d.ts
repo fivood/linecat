@@ -1,6 +1,8 @@
 export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 export type Meter = { limits: Limit[]; ctx?: number }
 export type Run = { startedAt: number; seconds: number; tokens: number }
+// the language the mod's own words are drawn in
+export type Lang = 'zh' | 'ja' | 'en'
 
 // Lineland: one cell of the line, 8 art pixels wide
 export type Cell = 'grass' | 'sand' | 'water' | 'rock' | 'peak' | 'forest' | 'rift'
@@ -27,6 +29,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    linecat: { meter: Meter | null; open: string[]; run: Run; line: Cell[]; scene: Scene | null; theme: string | null }
+    linecat: { meter: Meter | null; open: string[]; run: Run; line: Cell[]; scene: Scene | null; theme: string | null; lang: Lang | null }
   }
 }

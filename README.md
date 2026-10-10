@@ -23,7 +23,8 @@ A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat l
       | idle two minutes | z z z | `SLEEP MODE` |
 
       Subagents' own steps and calls do not change it; their parent `Agent` call shows instead.
-  - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars.
+  - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars, each with when it resets (`RESET 20:00`, or `RESET 10/13 20:00` when that is not today).
+- **Language**: the narration, the sheets' names and intros and the `/lineland` replies come in 中文, 日本語 and English. The **Language** setting (in `/config`, or asked at install) picks one, or `auto`: Claude Code's own response-language setting when it has one, otherwise the script of your first prompt. The status labels (`EXECUTE`, `ANALYZING`…) stay English on purpose, as part of the look.
 - **Spinner**: `■ PROCESSING  12s  ·  340 tokens`.
 - **Tool rows**: dark edge bar, tool name, what it touched, status and the first lines of plain-text output.
 

@@ -1,11 +1,25 @@
 {
   "name": "linecat",
   "displayName": "线国猫 Linecat",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A cat walks a line your Claude Code session unfolds, wearing what Claude is doing overhead; plus retro paper-panel styling for messages, tool rows and a usage monitor",
   "author": {
     "name": "fivood"
   },
   "repository": "https://github.com/fivood/linecat",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Language / 语言 / 言語",
+      "description": "Language of Linecat's narration, sheet names and /lineland replies. auto follows Claude Code's response language setting if there is one, else the script of your first prompt.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "zh",
+        "ja",
+        "en"
+      ]
+    }
+  }
 }
