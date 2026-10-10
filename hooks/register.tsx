@@ -1,24 +1,26 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Cell, Meter, Pose, Run, Scene } from '../types'
+import type { Cell, Meter, Run, Scene } from '../types'
 import * as lineland from './lineland'
+import { THEMES, themeOf } from './themes'
 
 // NieR:Automata palette
 const PAPER = '#dad4bb'
 const INK = '#4e4b42'
 const RED = '#b2533e'
+const AMBER = '#c8901e'
 const READ = '#f5f2e8' // light paper for reading, NieR panel body tone
 
 const LABEL: Record<string, string> = { five_hour: '5H', seven_day: '7D', spend_limit: 'SPEND' }
-// stream chunk kind -> the character's pose while a turn runs
-const POSE: Record<string, Pose> = { thinking: 'idle_back', text: 'walk_front', tool: 'walk_back', input: 'walk_back' }
 
 const meter = atom({ plugin: 'nier-ui', key: 'meter' } as const, null)
 const open = atom({ plugin: 'nier-ui', key: 'open' } as const, [] as string[])
 const run = atom({ plugin: 'nier-ui', key: 'run' } as const, { startedAt: 0, seconds: 0, tokens: 0 } as Run)
 const line = atom({ plugin: 'nier-ui', key: 'line' } as const, [] as Cell[])
 const scene = atom({ plugin: 'nier-ui', key: 'scene' } as const, null as Scene | null)
+// the Lineland sheet this session drew; kept in session state so a hot reload keeps it
+const sheet = atom({ plugin: 'nier-ui', key: 'theme' } as const, null as string | null)
 
 const bar = (pct: number, cells = 12) => {
   const n = Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)))
@@ -49,37 +51,75 @@ const status = (c: { isRunning: boolean; isErrored: boolean; isInterrupted: bool
   c.isRunning ? 'RUNNING' : c.isInterrupted ? 'ABORTED' : c.isErrored ? 'ERROR' : ''
 
 export const register: Register = on => {
-  // the pose the running turn asks the character for while it stands still; null between turns
-  let turnPose: Pose | null = null
   let walker: { cancel: () => void } | undefined
+  // whether a main-thread turn runs, so a compaction knows what to go back to
+  let isTurnOn = false
 
   on('session.start', async ($, e, next) => {
     const u = await $.session.usage()
     await update($, meter, (): Meter => ({ limits: u.rateLimits, ctx: u.context.percent }))
 
-    lineland.load(await read($, line))
+    // a new session draws a sheet at random; a reload keeps the one it drew
+    let id = await read($, sheet)
+    if (!id) {
+      const pick = THEMES[Math.floor(Math.random() * THEMES.length)]!
+      id = pick.id
+      await update($, sheet, () => pick.id)
+      lineland.say(pick.intro)
+    }
+    lineland.load(await read($, line), id)
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
       const isGrown = lineland.tick(1 / lineland.FPS)
       void (async () => {
         if (isGrown) await update($, line, () => [...lineland.cells()])
-        await update($, scene, () => lineland.scene(turnPose))
+        await update($, scene, () => lineland.scene())
       })()
     })
     return next(e)
   })
 
-  // Lineland: every tool call grows the line
+  // Lineland: every tool call grows the line; the main thread's calls also set what the character
+  // wears overhead (a subagent's calls run under the main thread's Agent call)
   on('tool.call', async ($, e, next) => {
+    const isMain = !e.agentId
+    if (isMain) lineland.setStatus('tool', e.tool)
+    // the land grows as the call starts, so the narration matches what runs; a failure tears a rift after it
+    lineland.grow(e.tool, false)
+    await update($, line, () => [...lineland.cells()])
     const r = await next(e)
-    lineland.grow(e.tool, Boolean(r.deny) || Boolean(r.isError))
+    const isDenied = Boolean(r.deny)
+    if (isDenied || r.isError) lineland.grow(e.tool, true)
+    if (isMain) {
+      lineland.setStatus(isTurnOn ? 'requesting' : 'idle')
+      if (isDenied) lineland.flash('denied', e.tool)
+      else if (r.isError) lineland.flash('error', e.tool, 4)
+    }
     await update($, line, () => [...lineland.cells()])
     return r
   })
 
+  // the engine settled on asking the person: the permission dialog is up
+  // ponytail: stays up through the approved call's run too; no event marks the answer
+  on('tool.check', async ($, e, next) => {
+    const v = await next(e)
+    if (v.decision === 'ask' && !e.agentId) lineland.setStatus('permission', e.tool)
+    return v
+  })
+
+  on('session.compact', async ($, e, next) => {
+    if (e.agentId) return next(e)
+    lineland.setStatus('compact')
+    try {
+      return await next(e)
+    } finally {
+      lineland.setStatus(isTurnOn ? 'requesting' : 'idle')
+    }
+  })
+
   on('prompt.submit', ($, e, next) => {
-    lineland.wake()
+    lineland.flash('prompt', '', 1.5)
     return next(e)
   })
 
@@ -110,11 +150,17 @@ export const register: Register = on => {
       <Box flexDirection="row" gap={2}>
         {'Svg' in ui && sc ? (
           <Box flexDirection="column" flexGrow={1}>
-            {title('STANDBY')}
+            {title('STANDBY // ' + themeOf(sc.theme).name)}
             <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
             <Box flexGrow={1} />
             <Box justifyContent="center">
-              <Text color={INK} dimColor>{sc.said || 'NO ERROR'}</Text>
+              <Text
+                color={sc.status === 'error' || sc.status === 'denied' ? RED : sc.status === 'permission' ? AMBER : INK}
+                dimColor={sc.status === 'idle'}
+                wrap="truncate-end"
+              >
+                {sc.said ? sc.label + ' · ' + sc.said : sc.label}
+              </Text>
             </Box>
           </Box>
         ) : null}
@@ -144,7 +190,8 @@ export const register: Register = on => {
   let tick: { cancel: () => void } | undefined
 
   on('turn.start', async ($, e, next) => {
-    turnPose = 'idle_front'
+    isTurnOn = true
+    lineland.setStatus('requesting')
     const startedAt = await $.clock.now()
     await update($, run, (): Run => ({ startedAt, seconds: 0, tokens: 0 }))
     tick?.cancel()
@@ -155,7 +202,10 @@ export const register: Register = on => {
   })
 
   on('turn.complete', (_$, e, next) => {
-    turnPose = null
+    if (e.agentId) return next(e)
+    isTurnOn = false
+    lineland.setStatus('idle')
+    if (e.isAborted) lineland.flash('interrupted', '', 3)
     tick?.cancel()
     tick = undefined
     return next(e)
@@ -170,10 +220,15 @@ export const register: Register = on => {
     return <Text color={INK} bold>{'■ PROCESSING  ' + r.seconds + 's' + tokens}</Text>
   })
 
+  // the main thread's stream: thinking, writing the reply, or writing a tool call's input
   on('turn.step', async function* ($, e, next) {
     const s = next(e)
     for await (const c of s) {
-      turnPose = POSE[c.kind] ?? turnPose
+      if (!e.agentId) {
+        if (c.kind === 'thinking') lineland.setStatus('thinking')
+        else if (c.kind === 'text') lineland.setStatus('responding')
+        else if (c.kind === 'tool') lineland.setStatus('preparing', c.name)
+      }
       yield c
     }
     const r = await s.result

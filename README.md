@@ -4,7 +4,25 @@ A Claude Code mod (function-hook plugin) that restyles the desktop Code tab afte
 
 - **Messages**: your prompts and Claude's replies drawn as NieR panels — dark title bar (`INPUT` / `REPORT`), light paper body, square corners.
 - **Band above the prompt**, two panels:
-  - **STANDBY**: Lineland, after the desktop pet of [A Visitor from the Fourth Dimension](https://github.com/fivood/claudewant). One line of paper that the session unfolds: reads pool into water, commands push up mountains, edits grow trees, errors tear rifts. A pixel character (a cat by default) wanders it, climbs the mountains, hops the rifts, ponders with its back turned while Claude thinks, and curls up after two quiet minutes.
+  - **STANDBY**: Lineland, after the desktop pet of [A Visitor from the Fourth Dimension](https://github.com/fivood/claudewant). One line of paper that the session unfolds: reads pool into water, commands push up mountains, edits grow trees, errors tear rifts. A pixel character (a cat by default) wanders it, climbs the mountains, hops the rifts, and curls up after two quiet minutes.
+    - **The sheet** is one of the game's ten, drawn at random when a session starts (a hot reload keeps it): Earthlike, Dual-Vector Foil, Dune, Solaris, Crystallized, Circuit Board, Ink Wash, Blueprint, Tissue Slide, Deep Sky. Each has its own colours, its own mountains and woods, and one motion of its own: drifting clouds, a flattening aftershock, a sandworm under the line, two suns, a drifting glint, a data packet on the trace, distant hills, the plan's grid, drifting nuclei, twinkling stars and meteors.
+    - **What Claude Code is doing** shows over the character's head and in the footer:
+
+      | State | Over its head | Footer |
+      |---|---|---|
+      | prompt sent | `!` | `INPUT RECEIVED` |
+      | waiting on the model | signal bars | `CONNECTING` |
+      | thinking (back turned) | thought bubble, dots | `ANALYZING` |
+      | writing the reply | lines typing out | `TRANSMITTING` |
+      | writing a tool call | that tool's icon, blinking | `PREPARING: <tool>` |
+      | a tool running | page, magnifier, terminal, pencil, globe, branch (subagent), checklist, plug (MCP), spark (skill), gear | `EXECUTE: <tool>` |
+      | permission dialog up | amber `?` | `AWAITING AUTHORIZATION: <tool>` |
+      | tool failed / denied | red `!` / red `×` | `ERROR` / `DENIED` |
+      | turn interrupted | `■` | `INTERRUPTED` |
+      | compacting | hourglass | `COMPRESSING MEMORY` |
+      | idle two minutes | z z z | `SLEEP MODE` |
+
+      Subagents' own steps and calls do not change it; their parent `Agent` call shows instead.
   - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars.
 - **Spinner**: `■ PROCESSING  12s  ·  340 tokens`.
 - **Tool rows**: dark edge bar, tool name, what it touched, status and the first lines of plain-text output.
