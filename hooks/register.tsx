@@ -233,7 +233,7 @@ export const register: Register = (on, options) => {
     return (
       // both halves start from zero width and split the row 6:4, whatever their content: the usage
       // half is narrow until the quota windows arrive, and would otherwise cede room
-      <Box flexDirection="row" gap={2}>
+      <Box flexDirection="row" gap={1}>
         {'Svg' in ui && sc ? (
           <Box flexDirection="column" flexGrow={3} width={0}>
             {title('STANDBY // ' + tr(themeOf(sc.theme).name))}
@@ -258,7 +258,7 @@ export const register: Register = (on, options) => {
             </Box>
           ) : (
             // one column each for label, bar, percentage and reset, so they line up in any font
-            <Box flexDirection="row" gap={1} paddingX={2} paddingY={1}>
+            <Box flexDirection="row" gap={1} paddingX={1} paddingY={1}>
               {[
                 (r: (typeof rows)[number]) => r.label,
                 (r: (typeof rows)[number]) => bar(r.pct),
