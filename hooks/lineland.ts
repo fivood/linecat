@@ -222,7 +222,7 @@ function overhead(r: Draw, v: Scene, cx: number) {
     // z's drifting up from the sleeper
     for (let k = 0; k < 3; k++) {
       const p = (t / 2 + k / 3) % 1, zx = x + 8 + Math.round(p * 6), zy = Math.round(v.catY - 14 - p * 14)
-      if (zy > 0) bitmap(r, ['###', '.#.', '###'], zx, zy, INK)
+      if (zy > 0) bitmap(r, ['###', '.#.', '###'], zx, zy, '#8a8676')   // a mid tone: legible on a light band and a dark one
     }
     return
   }

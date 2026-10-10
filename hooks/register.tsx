@@ -12,7 +12,13 @@ const PAPER = '#dad4bb'
 const INK = '#4e4b42'
 const RED = '#b2533e'
 const AMBER = '#c8901e'
-const READ = '#f5f2e8' // light paper for reading, the panel body tone
+// Text follows the person's light or dark theme through the theme key; the panel bodies are a warm
+// translucent tint over whatever the app draws beneath, so they read as #f5f2e8 paper on the light
+// theme's near-white and as a dark warm brown on the dark theme. The API says nothing of which
+// theme is up, so the colours carry both instead of detecting one.
+const TEXT = 'text'
+const READ_BODY = '#c9b98a33'
+const PAPER_BODY = '#b5a97759'
 
 const LABEL: Record<string, string> = { five_hour: '5H', seven_day: '7D', spend_limit: 'SPEND' }
 
@@ -230,7 +236,7 @@ export const register: Register = (on, options) => {
             <Box flexGrow={1} />
             <Box justifyContent="center">
               <Text
-                color={sc.status === 'error' || sc.status === 'denied' ? RED : sc.status === 'permission' ? AMBER : INK}
+                color={sc.status === 'error' || sc.status === 'denied' ? RED : sc.status === 'permission' ? AMBER : TEXT}
                 dimColor={sc.status === 'idle'}
                 wrap="truncate-end"
               >
@@ -243,10 +249,10 @@ export const register: Register = (on, options) => {
           {title('RESOURCE MONITOR')}
           <Box flexDirection="column" paddingX={2} paddingY={1}>
             {rows.length === 0 ? (
-              <Text color={INK}>NO DATA. AWAITING FIRST RESPONSE.</Text>
+              <Text color={TEXT}>NO DATA. AWAITING FIRST RESPONSE.</Text>
             ) : (
               rows.map(r => (
-                <Text key={r.label} color={r.pct >= 80 ? RED : INK}>
+                <Text key={r.label} color={r.pct >= 80 ? RED : TEXT}>
                   {r.label.padEnd(5) + bar(r.pct) + ' ' + String(Math.round(r.pct)).padStart(3) + '%  ' + r.tail}
                 </Text>
               ))
@@ -254,7 +260,7 @@ export const register: Register = (on, options) => {
           </Box>
           <Box flexGrow={1} />
           <Box justifyContent="center">
-            <Text color={INK} dimColor>NO ERROR</Text>
+            <Text color={TEXT} dimColor>NO ERROR</Text>
           </Box>
         </Box>
       </Box>
@@ -292,7 +298,7 @@ export const register: Register = (on, options) => {
     const { Text } = $.ui.resolve(e)
     const r = await read($, run)
     const tokens = r.tokens > 0 ? '  ·  ' + r.tokens.toLocaleString() + ' tokens' : ''
-    return <Text color={INK} bold>{'■ PROCESSING  ' + r.seconds + 's' + tokens}</Text>
+    return <Text color={TEXT} bold>{'■ PROCESSING  ' + r.seconds + 's' + tokens}</Text>
   })
 
   // the main thread's stream: thinking, writing the reply, or writing a tool call's input
@@ -321,18 +327,18 @@ export const register: Register = (on, options) => {
     const st = status(e.props)
     const out = e.props.isRunning ? '' : peek(e.props.output)
     return (
-      <Box flexDirection="row" backgroundColor={READ}>
+      <Box flexDirection="row" backgroundColor={READ_BODY}>
         <Box backgroundColor={st === 'ERROR' ? RED : INK}><Text> </Text></Box>
         <Box flexDirection="column" paddingX={1} flexGrow={1}>
           <Box flexDirection="row" gap={1}>
-            <Text color={INK} bold>{e.props.tool.toUpperCase()}</Text>
-            <Text color={INK} wrap="truncate-end">{brief(e.props.input)}</Text>
-            {st ? <Text color={st === 'RUNNING' ? INK : RED} bold>{st}</Text> : null}
+            <Text color={TEXT} bold>{e.props.tool.toUpperCase()}</Text>
+            <Text color={TEXT} wrap="truncate-end">{brief(e.props.input)}</Text>
+            {st ? <Text color={st === 'RUNNING' ? TEXT : RED} bold>{st}</Text> : null}
             {isGroupHead ? (
               <Button key="fold" label="FOLD" plain onPress={() => update($, open, l => (l ?? []).filter(x => x !== id))} />
             ) : null}
           </Box>
-          {out ? <Text color={INK} dimColor>{out}</Text> : null}
+          {out ? <Text color={TEXT} dimColor>{out}</Text> : null}
         </Box>
       </Box>
     )
@@ -350,11 +356,11 @@ export const register: Register = (on, options) => {
     const summary = [...counts].map(([t, n]) => t.toUpperCase() + ' ×' + n).join('  ')
     const isErrored = e.props.calls.some(c => c.isErrored)
     return (
-      <Box flexDirection="row" alignItems="center" backgroundColor={READ}>
+      <Box flexDirection="row" alignItems="center" backgroundColor={READ_BODY}>
         <Box backgroundColor={isErrored ? RED : INK}><Text> </Text></Box>
         <Box flexDirection="row" gap={1} paddingX={1} flexGrow={1}>
-          <Text color={INK} bold>EXECUTE</Text>
-          <Text color={INK}>{summary + (e.props.isActive ? '  ...' : '')}</Text>
+          <Text color={TEXT} bold>EXECUTE</Text>
+          <Text color={TEXT}>{summary + (e.props.isActive ? '  ...' : '')}</Text>
         </Box>
         {id ? <Button key="expand" label="EXPAND" plain onPress={() => update($, open, l => [...(l ?? []), id])} /> : null}
       </Box>
@@ -365,7 +371,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {
     const { Box, Markdown, Text } = $.ui.resolve(e)
     return (
-      <Box flexDirection="column" backgroundColor={READ}>
+      <Box flexDirection="column" backgroundColor={READ_BODY}>
         {e.props.isFirstOfReply ? (
           <Box backgroundColor={INK} paddingX={2}>
             <Text color={PAPER} bold>REPORT</Text>
@@ -383,12 +389,12 @@ export const register: Register = (on, options) => {
 
     const { Box, Text } = $.ui.resolve(e)
     return (
-      <Box flexDirection="column" backgroundColor={PAPER}>
+      <Box flexDirection="column" backgroundColor={PAPER_BODY}>
         <Box backgroundColor={INK} paddingX={2}>
           <Text color={PAPER} bold>INPUT</Text>
         </Box>
         <Box paddingX={2} paddingY={1}>
-          <Text color={INK}>{e.props.text}</Text>
+          <Text color={TEXT}>{e.props.text}</Text>
         </Box>
       </Box>
     )
