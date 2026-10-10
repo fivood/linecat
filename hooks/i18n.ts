@@ -74,7 +74,6 @@ export const W = {
   },
   // /lineland place band|pane: where the line is drawn
   place: {
-    title: { zh: '线国', ja: '線国', en: 'Lineland' },
     band: { zh: '线国回到输入框上方的横栏。', ja: '線国を入力欄の上の帯に戻した。', en: 'Lineland is back in the band above the prompt.' },
     pane: {
       zh: '线国挪到了侧边面板，横栏留给别的插件。',

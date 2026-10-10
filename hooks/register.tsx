@@ -71,6 +71,11 @@ const peek = (output: unknown) => {
 const status = (c: { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }) =>
   c.isRunning ? 'RUNNING' : c.isInterrupted ? 'ABORTED' : c.isErrored ? 'ERROR' : ''
 
+// open the side pane, or re-title it: its frame shows the sheet's name, in the language now in use
+function openPane($: EngineInterface) {
+  return $.ui.open({ id: PANE, title: tr(themeOf(lineland.themeId()).name) })
+}
+
 // a solid title bar over a panel
 function titleBar(ui: { Box: any; Text: any }, t: string) {
   const { Box, Text } = ui
@@ -101,6 +106,7 @@ async function settle($: EngineInterface, l: Lang) {
   setLang(l)
   await update($, settled, () => l)
   await registerCommand($)
+  if (place === 'pane') await openPane($)
 }
 
 // /lineland lang <zh|ja|en|auto>: pick the language here. It is kept past this session in the
@@ -183,7 +189,7 @@ export const register: Register = (on, options) => {
     }
     lineland.load(await read($, line), id)
     await registerCommand($)
-    if (place === 'pane') void $.ui.open({ id: PANE, title: tr(W.place.title) })
+    if (place === 'pane') void openPane($)
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
@@ -207,7 +213,7 @@ export const register: Register = (on, options) => {
       await $.store.set('place', v)
       if (v === 'band' && options.place === 'pane') return { text: tr(W.place.band) + ' ' + tr(W.place.pinned) }
       place = v
-      if (v === 'pane') await $.ui.open({ id: PANE, title: tr(W.place.title) })
+      if (v === 'pane') await openPane($)
       else await $.ui.close({ id: PANE })
       $.ui.invalidate('ui.render')
       return { text: tr(v === 'pane' ? W.place.pane : W.place.band) }
@@ -236,6 +242,7 @@ export const register: Register = (on, options) => {
     await update($, sheet, () => pick.id)
     lineland.setTheme(pick.id)
     lineland.say(pick.intro)
+    if (place === 'pane') await openPane($)
     return { text: fill(W.command.switched, { name: tr(pick.name) }) }
   })
 
@@ -295,12 +302,12 @@ export const register: Register = (on, options) => {
   })
 
   // the STANDBY column: the line, its title bar and the status footer; drawn in the band or the pane
-  function standby(ui: ReturnType<EngineInterface['ui']['resolve']>, sc: Scene) {
+  function standby(ui: ReturnType<EngineInterface['ui']['resolve']>, sc: Scene, inPane?: { viewW: number }) {
     const { Box, Text } = ui
     return (
       <Box flexDirection="column" flexGrow={1}>
-        {titleBar(ui, 'STANDBY // ' + tr(themeOf(sc.theme).name))}
-        {'Svg' in ui ? <ui.Svg source={lineland.draw(sc)} alt="Lineland" /> : null}
+        {inPane ? null : titleBar(ui, 'STANDBY // ' + tr(themeOf(sc.theme).name))}
+        {'Svg' in ui ? <ui.Svg source={lineland.draw(sc, inPane?.viewW)} alt="Lineland" /> : null}
         <Box flexGrow={1} />
         <Box justifyContent="center">
           <Text
@@ -391,7 +398,11 @@ export const register: Register = (on, options) => {
     const ui = $.ui.resolve(e)
     const sc = 'Svg' in ui ? await read($, scene) : null
     if (!sc) return <ui.Text dimColor>{tr(W.place.desktopOnly)}</ui.Text>
-    return standby(ui, sc)
+    // the view takes the pane's shape: code-font cells are about half as wide as tall, and two rows
+    // go to the status line; the art keeps its 56px height and the line gets as long as fits
+    const cols = e.props.bodyColumns, rows = Math.max(3, e.props.scroll.bodyRows - 2)
+    const viewW = Math.round(Math.min(1600, Math.max(120, (56 * cols * 0.5) / rows)))
+    return standby(ui, sc, { viewW })
   })
 
   // our own turn clock: the desktop keeps its seconds and tokens to itself

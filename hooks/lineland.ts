@@ -69,6 +69,7 @@ export function load(stored: readonly Cell[], theme: string) {
 }
 // redraw the same line on another sheet
 export const setTheme = (id: string) => { sim.theme = id }
+export const themeId = () => sim.theme
 // kept in every language and translated when drawn, so a language settled later still applies
 export function say(words: Words) {
   sim.said = words
@@ -257,22 +258,27 @@ function overhead(r: Draw, v: Scene, cx: number) {
 }
 
 // --- drawing ---------------------------------------------------------------------------------
-export function draw(v: Scene): string {
+// a view `viewW` art pixels wide: the band's is W; a pane passes its own shape's, so a wide pane shows
+// more of the line at the same scale instead of a zoomed crop
+export function draw(scene: Scene, viewW = W): string {
+  const end0 = sim.cells.length * CELL
+  // the camera for this width: the character a little left of centre, the line's end kept in view
+  const v = viewW === W ? scene : { ...scene, camX: Math.round(Math.min(Math.max(-8, scene.catX - viewW * 0.55), Math.max(-8, end0 + 24 - viewW))) }
   const th = themeOf(v.theme)
   const cells = sim.cells
-  const o = [`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="84" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges">`]
+  const o = [`<svg xmlns="http://www.w3.org/2000/svg" width="${viewW * 1.5}" height="${H * 1.5}" viewBox="0 0 ${viewW} ${H}" shape-rendering="crispEdges">`]
   const r: Draw = (x, y, w, h, c) => {
     if (w > 0 && h > 0) o.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`)
   }
-  const i0 = Math.max(0, Math.floor(v.camX / CELL)), i1 = Math.min(cells.length, Math.ceil((v.camX + W) / CELL) + 1)
+  const i0 = Math.max(0, Math.floor(v.camX / CELL)), i1 = Math.min(cells.length, Math.ceil((v.camX + viewW) / CELL) + 1)
 
-  if (th.bg) r(0, 0, W, H, th.bg)
-  th.decor?.(r, v.t, v.camX, W, H, G0)
+  if (th.bg) r(0, 0, viewW, H, th.bg)
+  th.decor?.(r, v.t, v.camX, viewW, H, G0)
 
   for (let i = i0; i < i1; i++) if (cells[i] === 'forest') drawTree(r, th, i * CELL - v.camX, G0, i)
 
   // mountains, one 2px column at a time, in the sheet's own way
-  const end = Math.min(v.camX + W, cells.length * CELL)
+  const end = Math.min(v.camX + viewW, cells.length * CELL)
   for (let x = Math.max(0, Math.floor(v.camX / 2) * 2); x < end; x += 2) {
     const g = ground(x + 1)
     if (g <= 0.5) continue
