@@ -1,18 +1,20 @@
 # 线国猫 Linecat
 
-A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat lives in a strip above the prompt, walking a line that your session unfolds as it works, and wearing what Claude is doing over its head. The rest of the tab gets a retro game-menu look: warm grey paper panels under dark title bars.
+English · [中文](README.zh-CN.md)
 
-- **Messages**: your prompts and Claude's replies drawn as paper panels — dark title bar (`INPUT` / `REPORT`), light paper body, square corners.
-- **Band above the prompt**, two panels:
+A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat lives in a strip above the prompt, walking a line that your session unfolds as it works, and wearing what Claude is doing over its head. The rest of the tab gets a retro game-menu look: paper panels under solid title bars, in both the light and the dark theme.
+
+- **Messages**: your prompts and Claude's replies drawn as panels with a title bar (`INPUT` / `REPORT`) and square corners. The bodies are a warm translucent tint and the text and title bars use the theme's own colours, so the light theme gets paper panels with dark bars and the dark theme dark warm panels with light bars, with no setting to change.
+- **Band above the prompt**, two panels side by side, 6:4:
   - **STANDBY**: Lineland, after the desktop pet of [A Visitor from the Fourth Dimension](https://github.com/fivood/claudewant). One line of paper that the session unfolds: reads pool into water, commands push up mountains, edits grow trees, errors tear rifts. A pixel character (a cat by default) wanders it, climbs the mountains, hops the rifts, and curls up after two quiet minutes.
     - **The sheet** is one of the game's ten, drawn at random when a session starts (a hot reload keeps it): Earthlike, Dual-Vector Foil, Dune, Solaris, Crystallized, Circuit Board, Ink Wash, Blueprint, Tissue Slide, Deep Sky. Each has its own colours, its own mountains and woods, and one motion of its own: drifting clouds, a flattening aftershock, a sandworm under the line, two suns, a drifting glint, a data packet on the trace, distant hills, the plan's grid, drifting nuclei, twinkling stars and meteors. `/lineland` redraws the same line on another sheet at random, `/lineland 沙丘` (or `/lineland dune`) on that one; it works mid-turn too.
-    - **What Claude Code is doing** shows over the character's head and in the footer:
+    - **What Claude Code is doing** shows over the character's head, drawn with a thin light outline so it reads on any background, and in the footer:
 
       | State | Over its head | Footer |
       |---|---|---|
       | prompt sent | `!` | `INPUT RECEIVED` |
       | waiting on the model | signal bars | `CONNECTING` |
-      | thinking (back turned) | thought bubble, dots | `ANALYZING` |
+      | thinking (back turned) | three dots lighting up | `ANALYZING` |
       | writing the reply | lines typing out | `TRANSMITTING` |
       | writing a tool call | that tool's icon, blinking | `PREPARING: <tool>` |
       | a tool running | page, magnifier, terminal, pencil, globe, branch (subagent), checklist, plug (MCP), spark (skill), gear | `EXECUTE: <tool>` |
@@ -23,7 +25,7 @@ A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat l
       | idle two minutes | z z z | `SLEEP MODE` |
 
       Subagents' own steps and calls do not change it; their parent `Agent` call shows instead.
-  - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars, each with when it resets (`RESET 20:00`, or `RESET 10/13 20:00` when that is not today).
+  - **RESOURCE MONITOR**: 5-hour / 7-day quota and context fill as `■□` bars in aligned columns, each with when it resets (`RESET 20:00`, or `RESET 10/13 20:00` when that is not today).
 - **Language**: the narration, the sheets' names and intros and the `/lineland` replies come in 中文, 日本語 and English. The **Language** setting (in `/config`, or asked at install) picks one, or `auto`: Claude Code's own response-language setting when it has one, otherwise the script of your first prompt. The status labels (`EXECUTE`, `ANALYZING`…) stay English on purpose, as part of the look.
 - **Spinner**: `■ PROCESSING  12s  ·  340 tokens`.
 - **Tool rows**: dark edge bar, tool name, what it touched, status and the first lines of plain-text output.
