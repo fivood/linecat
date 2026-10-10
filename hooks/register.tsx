@@ -110,8 +110,8 @@ async function settle($: EngineInterface, l: Lang) {
 }
 
 // /lineland lang <zh|ja|en|auto>: pick the language here. It is kept past this session in the
-// mod's own store, which works however the mod was loaded; the plugin's Language row in /config is
-// moved too where there is one (an installed plugin has it, a --plugin-dir or mods-folder one not)
+// mod's own store, which works however the mod was loaded. The mod writes no settings: the
+// Language row in /config stays as the person set it, and a pick there wins at the next start.
 async function switchLang($: EngineInterface, want: string): Promise<string> {
   const isAuto = want.trim().toLowerCase() === 'auto'
   const l = isAuto ? null : fromSetting(want)
@@ -123,8 +123,6 @@ async function switchLang($: EngineInterface, want: string): Promise<string> {
   } catch (err) {
     whyUnsaved = (err instanceof Error ? err.message : String(err)).slice(0, 120) || 'unknown'
   }
-  const row = (await $.config.list()).find(r => r.provider.plugin === 'linecat' && /language/i.test(r.key))
-  if (row) await $.config.set({ key: row.key, value: l ?? 'auto' })
   if (l) await settle($, l)
   else {
     isSettled = false
