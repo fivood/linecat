@@ -231,9 +231,11 @@ export const register: Register = (on, options) => {
     )
 
     return (
+      // both halves start from zero width and split the row evenly, whatever their content: the
+      // usage half is narrow until the quota windows arrive, and would otherwise cede room
       <Box flexDirection="row" gap={2}>
         {'Svg' in ui && sc ? (
-          <Box flexDirection="column" flexGrow={1}>
+          <Box flexDirection="column" flexGrow={1} width={0}>
             {title('STANDBY // ' + tr(themeOf(sc.theme).name))}
             <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
             <Box flexGrow={1} />
@@ -248,7 +250,7 @@ export const register: Register = (on, options) => {
             </Box>
           </Box>
         ) : null}
-        <Box flexDirection="column" flexGrow={1}>
+        <Box flexDirection="column" flexGrow={1} width={0}>
           {title('RESOURCE MONITOR')}
           <Box flexDirection="column" paddingX={2} paddingY={1}>
             {rows.length === 0 ? (
