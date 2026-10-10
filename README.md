@@ -81,7 +81,7 @@ Requires Pillow.
 
 ## License
 
-Code: MIT. The pixel-cat artwork in `hooks/sprite.ts` and `.claude-plugin/icon.png` is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
+Code: MIT. The pixel-cat artwork in `hooks/sprite.ts` and in the listing icon is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
 
 ## Limits
 

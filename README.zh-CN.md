@@ -81,7 +81,7 @@ python sheet2ts.py sheet.png sheet.json hooks/sprite.ts "Artwork (c) you"
 
 ## 许可
 
-代码：MIT。`hooks/sprite.ts` 和 `.claude-plugin/icon.png` 里的像素猫美术不在 MIT 许可范围内，保留所有权利；见 [LICENSE](LICENSE)。
+代码：MIT。`hooks/sprite.ts` 和插件图标里的像素猫美术不在 MIT 许可范围内，保留所有权利；见 [LICENSE](LICENSE)。
 
 ## 限制
 
