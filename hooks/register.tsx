@@ -68,6 +68,12 @@ export const register: Register = on => {
       lineland.say(pick.intro)
     }
     lineland.load(await read($, line), id)
+    await $.command.register({
+      name: 'lineland',
+      description: '给线国换一张纸：不带参数随机换，或指定地貌名',
+      argumentHint: '[地球|二向箔|沙丘|索拉里斯|晶化|电路板|水墨|蓝图|切片|深空]',
+      immediate: true,
+    })
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
@@ -78,6 +84,21 @@ export const register: Register = on => {
       })()
     })
     return next(e)
+  })
+
+  // /lineland [sheet]: the same line redrawn on another sheet, a named one or any other at random
+  on('command.run', { command: 'lineland' }, async ($, e) => {
+    const want = e.args.trim().toLowerCase()
+    const current = await read($, sheet)
+    const others = THEMES.filter(t => t.id !== current)
+    const pick = want
+      ? THEMES.find(t => t.id === want || t.name === want)
+      : others[Math.floor(Math.random() * others.length)]
+    if (!pick) return { text: `没有「${e.args.trim()}」这张纸。可选：${THEMES.map(t => t.name).join('、')}` }
+    await update($, sheet, () => pick.id)
+    lineland.setTheme(pick.id)
+    lineland.say(pick.intro)
+    return { text: `线国换成了「${pick.name}」。` }
   })
 
   // Lineland: every tool call grows the line; the main thread's calls also set what the character

@@ -66,6 +66,8 @@ export function load(stored: readonly Cell[], theme: string) {
   sim.cells = stored.length ? [...stored] : Array<Cell>(6).fill('grass')
   sim.theme = theme
 }
+// redraw the same line on another sheet
+export const setTheme = (id: string) => { sim.theme = id }
 export function say(words: string) {
   sim.said = words
   sim.sayT = 10
