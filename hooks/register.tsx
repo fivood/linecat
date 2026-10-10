@@ -231,11 +231,11 @@ export const register: Register = (on, options) => {
     )
 
     return (
-      // both halves start from zero width and split the row evenly, whatever their content: the
-      // usage half is narrow until the quota windows arrive, and would otherwise cede room
+      // both halves start from zero width and split the row 6:4, whatever their content: the usage
+      // half is narrow until the quota windows arrive, and would otherwise cede room
       <Box flexDirection="row" gap={2}>
         {'Svg' in ui && sc ? (
-          <Box flexDirection="column" flexGrow={1} width={0}>
+          <Box flexDirection="column" flexGrow={3} width={0}>
             {title('STANDBY // ' + tr(themeOf(sc.theme).name))}
             <ui.Svg source={lineland.draw(sc)} alt="Lineland" />
             <Box flexGrow={1} />
@@ -250,19 +250,31 @@ export const register: Register = (on, options) => {
             </Box>
           </Box>
         ) : null}
-        <Box flexDirection="column" flexGrow={1} width={0}>
+        <Box flexDirection="column" flexGrow={2} width={0}>
           {title('RESOURCE MONITOR')}
-          <Box flexDirection="column" paddingX={2} paddingY={1}>
-            {rows.length === 0 ? (
+          {rows.length === 0 ? (
+            <Box paddingX={2} paddingY={1}>
               <Text color={TEXT}>NO DATA. AWAITING FIRST RESPONSE.</Text>
-            ) : (
-              rows.map(r => (
-                <Text key={r.label} color={r.pct >= 80 ? RED : TEXT}>
-                  {r.label.padEnd(5) + bar(r.pct) + ' ' + String(Math.round(r.pct)).padStart(3) + '%  ' + r.tail}
-                </Text>
-              ))
-            )}
-          </Box>
+            </Box>
+          ) : (
+            // one column each for label, bar, percentage and reset, so they line up in any font
+            <Box flexDirection="row" gap={1} paddingX={2} paddingY={1}>
+              {[
+                (r: (typeof rows)[number]) => r.label,
+                (r: (typeof rows)[number]) => bar(r.pct),
+                (r: (typeof rows)[number]) => Math.round(r.pct) + '%',
+                (r: (typeof rows)[number]) => r.tail || ' ',
+              ].map((cell, k) => (
+                <Box key={'c' + k} flexDirection="column" alignItems={k === 2 ? 'flex-end' : 'flex-start'}>
+                  {rows.map(r => (
+                    <Text key={r.label} color={r.pct >= 80 ? RED : TEXT} wrap="truncate-end">
+                      {cell(r)}
+                    </Text>
+                  ))}
+                </Box>
+              ))}
+            </Box>
+          )}
           <Box flexGrow={1} />
           <Box justifyContent="center">
             <Text color={TEXT} dimColor>NO ERROR</Text>
