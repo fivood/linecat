@@ -8,7 +8,6 @@ import * as lineland from './lineland'
 import { THEMES, themeOf } from './themes'
 
 // retro menu palette: warm grey paper, dark ink
-const PAPER = '#dad4bb'
 const INK = '#4e4b42'
 const RED = '#b2533e'
 const AMBER = '#c8901e'
@@ -17,6 +16,10 @@ const AMBER = '#c8901e'
 // theme's near-white and as a dark warm brown on the dark theme. The API says nothing of which
 // theme is up, so the colours carry both instead of detecting one.
 const TEXT = 'text'
+// title bars take the theme's text colour as their ground and its inverse for their letters: a dark
+// bar on the light theme, a light one on the dark theme, either way well apart from the body
+const BAR = 'text'
+const BAR_TEXT = 'inverseText'
 const READ_BODY = '#c9b98a33'
 const PAPER_BODY = '#b5a97759'
 
@@ -222,8 +225,8 @@ export const register: Register = (on, options) => {
 
     const sc = 'Svg' in ui ? await read($, scene) : null
     const title = (t: string) => (
-      <Box backgroundColor={INK} paddingX={2}>
-        <Text color={PAPER} bold>{t}</Text>
+      <Box backgroundColor={BAR} paddingX={2}>
+        <Text color={BAR_TEXT} bold>{t}</Text>
       </Box>
     )
 
@@ -373,8 +376,8 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column" backgroundColor={READ_BODY}>
         {e.props.isFirstOfReply ? (
-          <Box backgroundColor={INK} paddingX={2}>
-            <Text color={PAPER} bold>REPORT</Text>
+          <Box backgroundColor={BAR} paddingX={2}>
+            <Text color={BAR_TEXT} bold>REPORT</Text>
           </Box>
         ) : null}
         <Box flexDirection="column" paddingX={2} paddingY={1}>
@@ -390,8 +393,8 @@ export const register: Register = (on, options) => {
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column" backgroundColor={PAPER_BODY}>
-        <Box backgroundColor={INK} paddingX={2}>
-          <Text color={PAPER} bold>INPUT</Text>
+        <Box backgroundColor={BAR} paddingX={2}>
+          <Text color={BAR_TEXT} bold>INPUT</Text>
         </Box>
         <Box paddingX={2} paddingY={1}>
           <Text color={TEXT}>{e.props.text}</Text>
