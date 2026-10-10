@@ -48,7 +48,6 @@ export const W = {
       ja: '線国の紙を替える（ランダム、または地形名を指定）；lang zh/ja/en/auto で言語を切り替え',
       en: 'Redraw Lineland on another sheet (at random, or name one); lang zh/ja/en/auto switches language',
     },
-    hint: { zh: '[地貌名 | lang zh/ja/en/auto]', ja: '[地形名 | lang zh/ja/en/auto]', en: '[sheet | lang zh/ja/en/auto]' },
     switched: { zh: '线国换成了「{name}」。', ja: '線国を「{name}」に替えた。', en: 'Lineland is now drawn on {name}.' },
     unknown: { zh: '没有「{want}」这张纸。可选：{all}', ja: '「{want}」という紙はない。選べるのは：{all}', en: 'No sheet called "{want}". Choose from: {all}' },
   },

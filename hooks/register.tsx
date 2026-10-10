@@ -76,7 +76,7 @@ const registerCommand = ($: EngineInterface) =>
   $.command.register({
     name: 'lineland',
     description: tr(W.command.description),
-    argumentHint: tr(W.command.hint),
+    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto]',
     immediate: true,
   })
 
@@ -90,14 +90,21 @@ async function settle($: EngineInterface, l: Lang) {
   await registerCommand($)
 }
 
-// /lineland lang <zh|ja|en|auto>: pick the language here, kept past this session by writing the
-// plugin's own Language row as the /config menu would (which reloads the module with it)
+// /lineland lang <zh|ja|en|auto>: pick the language here. It is kept past this session in the
+// mod's own store, which works however the mod was loaded; the plugin's Language row in /config is
+// moved too where there is one (an installed plugin has it, a --plugin-dir or mods-folder one not)
 async function switchLang($: EngineInterface, want: string): Promise<string> {
   const isAuto = want.trim().toLowerCase() === 'auto'
   const l = isAuto ? null : fromSetting(want)
   if (!isAuto && !l) return fill(W.lang.unknown, { want: want.trim() })
+  let isSaved = true
+  try {
+    await $.store.set('language', l ?? 'auto')
+  } catch {
+    isSaved = false
+  }
   const row = (await $.config.list()).find(r => r.provider.plugin === 'linecat' && /language/i.test(r.key))
-  const isSaved = row ? !('deny' in (await $.config.set({ key: row.key, value: l ?? 'auto' }))) : false
+  if (row) await $.config.set({ key: row.key, value: l ?? 'auto' })
   if (l) await settle($, l)
   else {
     isSettled = false
@@ -128,8 +135,12 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const u = await $.session.usage()
-    await update($, meter, (): Meter => ({ limits: u.rateLimits, ctx: u.context.percent }))
+    await update($, meter, (m): Meter => ({ limits: u.rateLimits.length ? u.rateLimits : m?.limits ?? [], ctx: u.context.percent ?? m?.ctx }))
 
+    if (!isSettled) {
+      const stored = fromSetting(await $.store.get('language'))
+      if (stored) await settle($, stored)
+    }
     if (!isSettled) {
       const kept = await read($, settled)
       if (kept) {
@@ -164,7 +175,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'lineland' }, async ($, e) => {
     const [head = '', ...rest] = e.args.trim().split(/\s+/)
     if (/^(lang|language|语言|語言|言語)$/i.test(head)) return { text: await switchLang($, rest.join(' ')) }
-    const want = e.args.trim().toLowerCase()
+    const want = e.args.trim().replace(/^\[|\]$/g, '').trim().toLowerCase()
     const current = await read($, sheet)
     const others = THEMES.filter(t => t.id !== current)
     const pick = want ? sheetNamed(want) : others[Math.floor(Math.random() * others.length)]
