@@ -25,7 +25,8 @@ SOFTWARE.
 Artwork exception
 
 The MIT License above covers the code only. It does not cover the pixel-cat
-artwork: the sprite pixel data embedded in `hooks/sprite.ts` (the "sem_cat"
+artwork: the sprite pixel data in `hooks/sprite.ts` and the listing icon
+`.claude-plugin/icon.png` (the "sem_cat"
 character, all poses and frames).
 
 Copyright (c) 2026 fivood. All rights reserved. The artwork may not be copied,

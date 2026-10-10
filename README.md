@@ -30,7 +30,7 @@ A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat l
 - **Spinner**: `■ PROCESSING  12s  ·  340 tokens`.
 - **Tool rows**: dark edge bar, tool name, what it touched, status and the first lines of plain-text output.
 
-The character is drawn as pixel rects in SVG (`hooks/sprite.ts`), generated from an Aseprite sprite-sheet export by `sheet2ts.py`.
+The character is pixel art kept as readable rows of letters, one per colour (`hooks/sprite.ts`), turned into SVG rects when the mod loads; `sheet2ts.py` writes that file from an Aseprite sprite-sheet export.
 
 ## Install
 
@@ -52,7 +52,11 @@ Or for one session: `claude --plugin-dir /path/to/linecat`.
 
 ## What it reads and sends
 
-It only draws. It reads the session's own usage figures (quota windows and context fill), the names and inputs of tool calls as they run, the stream's phase (thinking, reply, tool input), permission decisions, compaction and turn ends, and keeps a small amount of session state (the line, the chosen sheet, a turn clock). It sends nothing anywhere, makes no network requests, reads and writes no files, and runs no processes. Its hooks on tool calls, permission checks, prompts, the stream, compaction and turns only observe: each passes its event on unchanged, so no call, prompt or permission decision is altered. Only its drawing hooks replace what the app draws, and only on screen; the transcript Claude reads is untouched.
+It only draws. It reads the session's own usage figures (quota windows and context fill), the names and inputs of tool calls as they run, the stream's phase (thinking, reply, tool input), when a permission dialog opens, compaction and turn ends, and keeps a small amount of session state (the line, the chosen sheet, a turn clock). It sends nothing anywhere, makes no network requests, reads and writes no files, and runs no processes. Its hooks on tool calls, permission checks, prompts, the stream, compaction and turns only observe: each passes its event on unchanged, so no call, prompt or permission decision is altered. Only its drawing hooks replace what the app draws, and only on screen; the transcript Claude reads is untouched.
+
+**The permission hook.** One hook runs when Claude Code opens a permission dialog (`PermissionRequest`). It only puts the amber `?` over the cat and writes `AWAITING AUTHORIZATION` in the footer, then hands the event on unchanged. It never reads, changes or answers the decision: approving or denying stays entirely yours.
+
+**The tool-call hook.** The `tool.call` hook sees every tool call, including calls made by other code, so the line can grow and the cat can show the tool's icon. It passes each call on unchanged and only reads its name and whether it failed or was denied.
 
 ## Swap the character
 
@@ -77,7 +81,7 @@ Requires Pillow.
 
 ## License
 
-Code: MIT. The pixel-cat artwork in `hooks/sprite.ts` is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
+Code: MIT. The pixel-cat artwork in `hooks/sprite.ts` and `.claude-plugin/icon.png` is not covered by the MIT license, all rights reserved; see [LICENSE](LICENSE).
 
 ## Limits
 

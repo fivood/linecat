@@ -178,12 +178,12 @@ export const register: Register = (on, options) => {
     return r
   })
 
-  // the engine settled on asking the person: the permission dialog is up
-  // ponytail: stays up through the approved call's run too; no event marks the answer
-  on('tool.check', async ($, e, next) => {
-    const v = await next(e)
-    if (v.decision === 'ask' && !e.agentId) lineland.setStatus('permission', e.tool)
-    return v
+  // the permission dialog is up. Observe only: the event goes on untouched and the decision stays
+  // the person's; nothing here reads or answers it.
+  // ponytail: the mark stays up through the approved call's run too; no event marks the answer
+  on('classic.PermissionRequest', ($, e, next) => {
+    if (!e.agent_id) lineland.setStatus('permission', e.tool_name)
+    return next(e)
   })
 
   on('session.compact', async ($, e, next) => {
