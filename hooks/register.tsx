@@ -91,7 +91,7 @@ const registerCommand = ($: EngineInterface) =>
   $.command.register({
     name: 'lineland',
     description: tr(W.command.description),
-    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto] [monitor|panels on|off] [place band|pane]',
+    argumentHint: '[' + THEMES.map(t => tr(t.name)).join('|') + '] [lang zh|ja|en|auto] [monitor|panels on|off] [place band|pane] [help]',
     immediate: true,
   })
 
@@ -205,6 +205,7 @@ export const register: Register = (on, options) => {
   // /lineland [sheet]: the same line redrawn on another sheet, a named one or any other at random
   on('command.run', { command: 'lineland' }, async ($, e) => {
     const [head = '', ...rest] = e.args.trim().split(/\s+/)
+    if (/^(help|\?|帮助|幫助|ヘルプ)$/i.test(head)) return { text: tr(W.help) }
     if (/^(lang|language|语言|語言|言語)$/i.test(head)) return { text: await switchLang($, rest.join(' ')) }
     // /lineland place band|pane: the line in the band, or in a side pane that no other plugin contends for
     if (/^(place|where|位置)$/i.test(head)) {

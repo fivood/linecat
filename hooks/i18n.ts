@@ -72,6 +72,42 @@ export const W = {
       en: '(It is off in the settings; turn it on in /config first.)',
     },
   },
+  // /lineland help
+  help: {
+    zh: [
+      '/lineland — 随机换一张纸',
+      '/lineland <地貌名> — 换到指定的纸，中日英名或 id 都行，例如 沙丘、dune',
+      '/lineland place pane — 把线国放进侧边面板；面板关掉后，用它重新打开',
+      '/lineland place band — 把线国放回输入框上方的横栏',
+      '/lineland monitor on|off — 打开或关闭用量监视',
+      '/lineland panels on|off — 打开或关闭复古面板（消息、工具调用行、思考行）',
+      '/lineland lang zh|ja|en|auto — 切换语言，auto 为自动',
+      '/lineland help — 显示这份说明',
+      '位置、开关和语言都会跨会话记住；/config 里也能改，在那里关掉的以那里为准。',
+    ].join('\n'),
+    ja: [
+      '/lineland — 紙をランダムに替える',
+      '/lineland <地形名> — 指定した紙に替える。日中英の名前か id で、例えば 砂丘、dune',
+      '/lineland place pane — 線国をサイドパネルに移す。パネルを閉じたあとはこれで開き直す',
+      '/lineland place band — 線国を入力欄の上の帯に戻す',
+      '/lineland monitor on|off — リソースモニターのオン／オフ',
+      '/lineland panels on|off — レトロパネル（メッセージ、ツール行、思考行）のオン／オフ',
+      '/lineland lang zh|ja|en|auto — 言語の切り替え。auto は自動',
+      '/lineland help — この説明を表示',
+      '位置・スイッチ・言語はセッションをまたいで記憶される。/config でも変えられ、そこでオフにしたものはそちらが優先。',
+    ].join('\n'),
+    en: [
+      '/lineland — redraw the line on another sheet, at random',
+      '/lineland <sheet> — on that sheet; its name in any language or its id, e.g. Dune, 沙丘, dune',
+      '/lineland place pane — move the line to a side pane; after closing the pane, this opens it again',
+      '/lineland place band — put the line back in the band above the prompt',
+      '/lineland monitor on|off — the usage monitor',
+      '/lineland panels on|off — the retro panels (messages, tool rows, the thinking line)',
+      '/lineland lang zh|ja|en|auto — the language; auto picks it for you',
+      '/lineland help — this list',
+      'Position, switches and language are remembered across sessions; /config has them too, and off there wins.',
+    ].join('\n'),
+  },
   // /lineland place band|pane: where the line is drawn
   place: {
     band: { zh: '线国回到输入框上方的横栏。', ja: '線国を入力欄の上の帯に戻した。', en: 'Lineland is back in the band above the prompt.' },

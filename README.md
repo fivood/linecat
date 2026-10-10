@@ -36,6 +36,21 @@ A Claude Code mod (function-hook plugin) for the desktop Code tab. A pixel cat l
 The character is pixel art kept as readable rows of letters, one per colour (`hooks/sprite.ts`), turned into SVG rects when the mod loads; `sheet2ts.py` writes that file from an Aseprite sprite-sheet export.
 - **Position**: the line lives in the band above the prompt by default. `/lineland place pane` moves it to a side pane of its own (and `/lineland place band` brings it back); the **Lineland position** setting does the same at install or in `/config`.
 
+## Commands
+
+All of them work in the desktop app, where `/config` is not available. Position, switches and language are remembered across sessions; `/config` has the same settings, and off there wins.
+
+| Command | What it does |
+|---|---|
+| `/lineland` | Redraw the same line on another sheet, at random |
+| `/lineland <sheet>` | Redraw it on that sheet: its name in any language or its id (`Dune`, `沙丘`, `dune`) |
+| `/lineland place pane` | Move the line into a side pane of its own. After you close the pane, the same command opens it again |
+| `/lineland place band` | Put the line back in the band above the prompt |
+| `/lineland monitor on` / `off` | Show or hide the usage monitor |
+| `/lineland panels on` / `off` | Turn the retro panels (messages, tool rows, the thinking line) on or off |
+| `/lineland lang zh` / `ja` / `en` / `auto` | Set the language, or let it be picked for you |
+| `/lineland help` | List these in the current language |
+
 ## Sharing the band with other plugins
 
 Only one stack of drawings fills the band above the prompt, and the plugins that draw there take turns in an order Claude Code sets. Linecat asks the plugins beneath it what they drew and shows that above its own panels, so another plugin's band is never swallowed. A plugin above Linecat decides for itself: if it draws its band without the ones beneath, Linecat's goes unseen. In that case, or if you would rather leave the band to another plugin altogether, put the line in a side pane with `/lineland place pane` and switch the monitor off with `/lineland monitor off`; the band is then entirely the other plugin's.
