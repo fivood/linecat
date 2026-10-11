@@ -1,7 +1,7 @@
 {
   "name": "linecat",
   "displayName": "线国猫 Linecat",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A cat walks a line your Claude Code session unfolds, wearing what Claude is doing overhead; plus retro paper-panel styling for messages, tool rows and a usage monitor",
   "author": {
     "name": "fivood"

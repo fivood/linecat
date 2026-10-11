@@ -97,6 +97,15 @@ const registerCommand = ($: EngineInterface) =>
     immediate: true,
   })
 
+// a step that may fail without taking the rest down: its value, or `fallback` when it throws
+async function guard<T>(step: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await step()
+  } catch {
+    return fallback
+  }
+}
+
 // whether the language is known: picked in the settings, or settled by auto
 let isSettled = false
 // where the line is drawn: in the band above the prompt, or in a side pane of its own
@@ -159,37 +168,20 @@ export const register: Register = (on, options) => {
   let isMonitorOn = isMonitorAllowed
   let isRestyleOn = isRestyleAllowed
 
+  // Start-up runs in an order that degrades rather than stops: the line and its clock first, then
+  // the command, then what only refines them (stored choices, the language, the usage). Each step is
+  // guarded on its own, so one failing read leaves the rest of the mod working.
   on('session.start', async ($, e, next) => {
-    isMonitorOn = isMonitorAllowed && (await $.store.get('monitor')) !== false
-    isRestyleOn = isRestyleAllowed && (await $.store.get('restyle')) !== false
-    // pane in the settings is pane; otherwise a choice made with /lineland place (in the store)
-    place = options.place === 'pane' || (await $.store.get('place')) === 'pane' ? 'pane' : 'band'
-    const u = await $.session.usage()
-    await update($, meter, (m): Meter => ({ limits: u.rateLimits.length ? u.rateLimits : m?.limits ?? [], ctx: u.context.percent ?? m?.ctx }))
-
-    if (!isSettled) {
-      const stored = fromSetting(await $.store.get('language'))
-      if (stored) await settle($, stored)
-    }
-    if (!isSettled) {
-      const kept = await read($, settled)
-      if (kept) {
-        isSettled = true
-        setLang(kept)
-      } else await settleFromConfig($)
-    }
-
     // a new session draws a sheet at random; a reload keeps the one it drew
-    let id = await read($, sheet)
-    if (!id) {
+    const id = await guard(async () => {
+      const kept = await read($, sheet)
+      if (kept) return kept
       const pick = THEMES[Math.floor(Math.random() * THEMES.length)]!
-      id = pick.id
       await update($, sheet, () => pick.id)
       lineland.say(pick.intro)
-    }
-    lineland.load(await read($, line), id)
-    await registerCommand($)
-    if (place === 'pane') openPane($)
+      return pick.id
+    }, 'earth')
+    lineland.load(await guard(() => read($, line), []), id)
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
@@ -197,8 +189,34 @@ export const register: Register = (on, options) => {
       void (async () => {
         if (isGrown) await update($, line, () => [...lineland.cells()])
         await update($, scene, () => lineland.scene())
-      })()
+      })().catch(() => {})
     })
+
+    // what the person chose with /lineland, kept in the store
+    const stored = async (key: string) => guard(() => $.store.get(key), undefined)
+    isMonitorOn = isMonitorAllowed && (await stored('monitor')) !== false
+    isRestyleOn = isRestyleAllowed && (await stored('restyle')) !== false
+    // pane in the settings is pane; otherwise a choice made with /lineland place
+    place = options.place === 'pane' || (await stored('place')) === 'pane' ? 'pane' : 'band'
+
+    if (!isSettled) {
+      const picked = fromSetting(await stored('language'))
+      if (picked) await guard(() => settle($, picked), undefined)
+    }
+    if (!isSettled) {
+      const kept = await guard(() => read($, settled), null)
+      if (kept) {
+        isSettled = true
+        setLang(kept)
+      } else await guard(() => settleFromConfig($), undefined)
+    }
+    await guard(() => registerCommand($), undefined)
+    if (place === 'pane') openPane($)
+
+    await guard(async () => {
+      const u = await $.session.usage()
+      await update($, meter, (m): Meter => ({ limits: u.rateLimits.length ? u.rateLimits : m?.limits ?? [], ctx: u.context.percent ?? m?.ctx }))
+    }, undefined)
     return next(e)
   })
 
@@ -249,21 +267,28 @@ export const register: Register = (on, options) => {
 
   // Lineland: every tool call grows the line; the main thread's calls also set what the character
   // wears overhead (a subagent's calls run under the main thread's Agent call)
+  // Only watches: the call goes on at once and untouched, and its result is handed back whatever
+  // happens here. The line's state is written alongside, never waited on.
   on('tool.call', async ($, e, next) => {
     const isMain = !e.agentId
     if (isMain) lineland.setStatus('tool', e.tool)
     // the land grows as the call starts, so the narration matches what runs; a failure tears a rift after it
     lineland.grow(e.tool, false)
-    await update($, line, () => [...lineland.cells()])
+    const store = () => void update($, line, () => [...lineland.cells()]).catch(() => {})
+    store()
     const r = await next(e)
-    const isDenied = Boolean(r.deny)
-    if (isDenied || r.isError) lineland.grow(e.tool, true)
-    if (isMain) {
-      lineland.setStatus(isTurnOn ? 'requesting' : 'idle')
-      if (isDenied) lineland.flash('denied', e.tool)
-      else if (r.isError) lineland.flash('error', e.tool, 4)
+    try {
+      const isDenied = Boolean(r.deny)
+      if (isDenied || r.isError) lineland.grow(e.tool, true)
+      if (isMain) {
+        lineland.setStatus(isTurnOn ? 'requesting' : 'idle')
+        if (isDenied) lineland.flash('denied', e.tool)
+        else if (r.isError) lineland.flash('error', e.tool, 4)
+      }
+      store()
+    } catch {
+      // the drawing misses a beat; the call's result still goes back below
     }
-    await update($, line, () => [...lineland.cells()])
     return r
   })
 
@@ -289,9 +314,10 @@ export const register: Register = (on, options) => {
     lineland.flash('prompt', '', 1.5)
     // auto, with nothing settled yet: the script of the person's first prompt. Prompts a program
     // made (a task notification, a channel message) open with a tag and are passed over.
+    // Settled alongside: the prompt goes on at once and unchanged.
     if (!isSettled && !e.text.trimStart().startsWith('<')) {
       const found = fromText(e.text)
-      if (found) await settle($, found)
+      if (found) void settle($, found).catch(() => {})
     }
     return next(e)
   })
@@ -401,7 +427,7 @@ export const register: Register = (on, options) => {
     if (!sc) return <ui.Text dimColor>{tr(W.place.desktopOnly)}</ui.Text>
     // the view takes the pane's shape: code-font cells are about half as wide as tall, and two rows
     // go to the status line; the art keeps its 56px height and the line gets as long as fits
-    const cols = e.props.bodyColumns, rows = Math.max(3, e.props.scroll.bodyRows - 2)
+    const cols = e.props.bodyColumns || 80, rows = Math.max(3, (e.props.scroll?.bodyRows ?? 20) - 2)
     const viewW = Math.round(Math.min(1600, Math.max(120, (56 * cols * 0.5) / rows)))
     return standby(ui, sc, { viewW })
   })
@@ -409,15 +435,20 @@ export const register: Register = (on, options) => {
   // our own turn clock: the desktop keeps its seconds and tokens to itself
   let tick: { cancel: () => void } | undefined
 
+  // A turn.start while a main turn runs is a subagent's (the event names no agent; only its
+  // turn.complete does): it must not restart the main turn's clock or status.
   on('turn.start', async ($, e, next) => {
+    if (isTurnOn) return next(e)
     isTurnOn = true
     lineland.setStatus('requesting')
-    const startedAt = await $.clock.now()
-    await update($, run, (): Run => ({ startedAt, seconds: 0, tokens: 0 }))
     tick?.cancel()
-    tick = $.clock.every(1000, () => {
-      void $.clock.now().then(now => update($, run, r => ({ ...r!, seconds: Math.floor((now - r!.startedAt) / 1000) })))
-    })
+    await guard(async () => {
+      const startedAt = await $.clock.now()
+      await update($, run, (): Run => ({ startedAt, seconds: 0, tokens: 0 }))
+      tick = $.clock.every(1000, () => {
+        void $.clock.now().then(now => update($, run, r => ({ ...r!, seconds: Math.floor((now - r!.startedAt) / 1000) }))).catch(() => {})
+      })
+    }, undefined)
     return next(e)
   })
 
@@ -453,7 +484,7 @@ export const register: Register = (on, options) => {
     }
     const r = await s.result
     const out = r.usage?.output_tokens ?? 0
-    if (out) await update($, run, x => ({ ...x!, tokens: x!.tokens + out }))
+    if (out) void update($, run, x => ({ ...x!, tokens: x!.tokens + out })).catch(() => {})
     return r
   })
 
