@@ -305,3 +305,84 @@ export const EVENTS: Record<string, SheetEvent> = {
     words: { zh: '一颗彗星划过去。它要很多年才会回来。', ja: '彗星がひとつ横切った。戻ってくるのはずっと先だ。', en: 'A comet went by. It will be many years before it comes back.' },
   },
 }
+
+// --- things from outside the paper ------------------------------------------------------------
+// The game's cross-dimension effects, on a line: something three-dimensional meets the sheet, and the
+// sheet only ever holds the part of it touching the paper, a cross-section that appears, changes and goes.
+
+// a filled disc, its edge ragged by `rag`
+const disc = (r: Draw, x: number, y: number, R: number, c: string, rag = 0) => {
+  for (let dy = -Math.floor(R); dy <= R; dy++) {
+    const w = Math.round(Math.sqrt(Math.max(0, R * R - dy * dy)) * (1 + rag * (hash(dy * 3 + 1) - 0.5)))
+    r(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1, c)
+  }
+}
+// a one-pixel segment
+const seg = (r: Draw, x0: number, y0: number, x1: number, y1: number, c: string) => {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1)
+  for (let k = 0; k <= n; k++) r(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), 1, 1, c)
+}
+const ramp = (p: number, a: number, b: number) => Math.min(1, Math.max(0, (p - a) / (b - a)))
+
+export const CROSSINGS: Record<string, SheetEvent> = {
+  blueprint: {
+    seconds: 10,
+    draw: (r, p, _t, W, _H, G0) => {
+      // a ruler laid along the top of the plan, and a compass drawing an arc over the line
+      const out = ramp(p, 0.85, 1), ry = Math.round(-12 + (ramp(p, 0, 0.12) - out) * 16), rx = Math.round(W * 0.15)
+      r(rx, ry, 90, 6, '#e8dca8')
+      for (let k = 0; k < 90; k += 3) r(rx + k, ry, 1, k % 15 ? 2 : 4, '#7a6a40')
+      const nx = Math.round(W * 0.62), ny = G0 - 2, R = 16
+      const q = ramp(p, 0.25, 0.8)
+      for (let a = 0; a <= q * Math.PI; a += 1 / R) r(Math.round(nx + R * Math.cos(Math.PI - a)), Math.round(ny - R * Math.sin(Math.PI - a)), 1, 1, '#e2ecff')
+      if (p < 0.15 || p > 0.88) return
+      // the hinge leans the way the pencil is going, the way a hand tilts a compass
+      const a = q * Math.PI, px = nx - R * Math.cos(a), py = ny - R * Math.sin(a)
+      const hx = (nx + px) / 2 + Math.sin(a) * 10, hy = (ny + py) / 2 - Math.abs(Math.cos(a)) * 10 - 2
+      seg(r, nx, ny, hx, hy, '#c8ccd4'); seg(r, hx, hy, px, py, '#c8ccd4')
+      r(Math.round(hx) - 1, Math.round(hy) - 3, 3, 3, '#9aa0aa'); r(Math.round(px), Math.round(py), 1, 1, '#3a3a40')
+    },
+    words: { zh: '纸外面伸进来一把尺子和一副圆规，量了量，画了一道弧，又走了。', ja: '紙の外から定規とコンパスが入ってきて、測って、弧をひとつ描いて、去っていった。', en: 'A ruler and a compass reached in from outside the paper, measured, drew an arc, and left.' },
+  },
+  ink: {
+    seconds: 10,
+    draw: (r, p, _t, W, _H, G0) => {
+      // a drop falling onto the paper: its shadow first, then the blot, spreading and soaking in
+      const x = Math.round(W * 0.42), y = G0 - 4
+      if (p < 0.15) return disc(r, x, y, 4 - p * 20, '#c4c0b8')
+      const R = 2 + ramp(p, 0.15, 0.4) * 6, c = p < 0.6 ? '#1a181a' : p < 0.8 ? '#646460' : '#c4c0b8'
+      disc(r, x, y, R + 1.5, '#92909066', 0.6)
+      disc(r, x, y, R, c, 0.5)
+      for (let k = 0; k < 5; k++) r(Math.round(x + (hash(k + 20) - 0.5) * R * 4), Math.round(y + (hash(k + 30) - 0.5) * R * 2.5), 1, 1, c)
+    },
+    words: { zh: '一滴墨从纸外面落了下来。落到纸上之前，这里谁也看不见它。', ja: '紙の外から墨が一滴落ちてきた。紙に触れるまで、ここでは誰にも見えなかった。', en: 'A drop of ink fell from outside the paper. Until it touched, no one here could see it.' },
+  },
+  slide: {
+    seconds: 9,
+    draw: (r, p, _t, W, _H, G0) => {
+      // the focus knob turning: the focal plane sinks through the section, and each nucleus it passes
+      // swells and shrinks like a slice through a ball
+      for (let k = 0; k < 7; k++) {
+        const x = 10 + hash(k + 200) * (W - 20), y = 6 + hash(k + 300) * (G0 - 16)
+        const d = 0.12 + hash(k + 400) * 0.76, R0 = 4 + hash(k + 500) * 4
+        const R = Math.sqrt(Math.max(0, R0 * R0 - ((p - d) * 45) ** 2))
+        if (R < 0.8) continue
+        disc(r, x, y, R, '#a070b0')
+        if (R > 2.5) r(Math.round(x), Math.round(y), 1, 1, '#5a2a7a')
+      }
+    },
+    words: { zh: '有人在拧调焦旋钮。细胞核一个个胀大、缩小、消失——原来它们都是球。', ja: '誰かがピントのつまみを回している。細胞核がひとつずつ膨らみ、縮み、消えた。どれも球だったのだ。', en: 'Someone is turning the focus knob. The nuclei swell, shrink and vanish one by one: they were balls all along.' },
+  },
+  sky: {
+    seconds: 8,
+    draw: (r, p, _t, W) => {
+      // a meteor through the paper: a white point, a hole burned open, its rim cooling
+      const x = Math.round(W * 0.38), y = 14
+      if (p < 0.08) return void (r(x - 1, y, 3, 1, '#ffffff'), r(x, y - 1, 1, 3, '#ffffff'))
+      const R = 1 + ramp(p, 0.08, 0.3) * 4
+      disc(r, x, y, R + 1, p < 0.4 ? '#ffd070' : p < 0.7 ? '#e0703a' : '#6a3a2a', 0.3)
+      disc(r, x, y, R, '#000000')
+    },
+    words: { zh: '一颗流星从纸外面穿了过去，烧出一个洞。对这条线来说，它只存在了一瞬。', ja: '流星が紙の外から突き抜けて、穴を焼いていった。この線にとって、それは一瞬だけ存在した。', en: 'A meteor came through the paper from outside and burned a hole. For this line, it existed for an instant.' },
+  },
+}

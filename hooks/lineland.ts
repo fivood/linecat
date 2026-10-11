@@ -8,7 +8,7 @@
 import type { Cell, Mark, Scene, Status } from '../types'
 import { SPRITE_SIZE, SPRITES } from './sprite'
 import { tr, W as WORDS, type Words } from './i18n'
-import { EVENTS, FOLK, themeOf, type Draw } from './themes'
+import { CROSSINGS, EVENTS, FOLK, themeOf, type Draw, type SheetEvent } from './themes'
 import { commandKind, drawMark, fileShape, lineOf, MILES, profileOf } from './wonders'
 
 export const FPS = 8
@@ -64,7 +64,7 @@ const sim = {
   cmds: new Map<string, number>(), files: new Map<string, number>(), rifts: [] as { i: number; tool: string }[],
   // the residents, and the sheet's next event
   folk: [] as { x: number; dir: number; rest: number }[],
-  evt: { start: 0, until: 0, next: 60 },
+  evt: { start: 0, until: 0, next: 60, ev: null as SheetEvent | null },
   // when each mark last spoke, so walking past it again soon stays quiet
   heard: {} as Record<string, number>,
   // at each wonder the character decides on a whim whether to climb it or walk across in front;
@@ -80,10 +80,13 @@ export function load(stored: readonly Cell[], theme: string, storedMarks: readon
   sim.theme = theme
   const end = sim.cells.length * CELL
   sim.folk = Array.from({ length: 3 }, (_, k) => ({ x: 16 + Math.random() * Math.max(8, end - 32), dir: k % 2 ? 1 : -1, rest: Math.random() * 4 }))
-  sim.evt = { start: 0, until: 0, next: sim.t + 40 + Math.random() * 60 }
+  sim.evt = { start: 0, until: 0, next: sim.t + 40 + Math.random() * 60, ev: null }
 }
 // redraw the same line on another sheet
-export const setTheme = (id: string) => { sim.theme = id }
+export const setTheme = (id: string) => {
+  sim.theme = id
+  sim.evt.until = 0
+}
 export const themeId = () => sim.theme
 // kept in every language and translated when drawn, so a language settled later still applies
 export function say(words: Words) {
@@ -284,9 +287,10 @@ export function tick(dt: number): boolean {
   }
 
   // the sheet's own event every minute or two, asleep or not; it is narrated only to someone around
-  const ev = EVENTS[sim.theme]
-  if (ev && sim.t >= sim.evt.next) {
-    sim.evt = { start: sim.t, until: sim.t + ev.seconds, next: sim.t + ev.seconds + 60 + Math.random() * 90 }
+  // (on some sheets, half the time, something reaches in from outside the paper instead)
+  if (EVENTS[sim.theme] && sim.t >= sim.evt.next) {
+    const cross = CROSSINGS[sim.theme], ev = cross && Math.random() < 0.5 ? cross : EVENTS[sim.theme]!
+    sim.evt = { start: sim.t, until: sim.t + ev.seconds, next: sim.t + ev.seconds + 60 + Math.random() * 90, ev }
     if (!sim.said && !isSleepy) say(ev.words)
   }
 
@@ -486,7 +490,7 @@ export function draw(scene: Scene, viewW = W): string {
   }
 
   // the sheet's event, while it lasts
-  const ev = EVENTS[th.id]
+  const ev = sim.evt.ev
   if (ev && v.t < sim.evt.until) ev.draw(r, Math.min(1, (v.t - sim.evt.start) / ev.seconds), v.t, viewW, H, G0)
 
   // the wonders, standing on the line
