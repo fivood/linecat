@@ -96,11 +96,11 @@ export const THEMES: Theme[] = [
     tree: ['#d67830', '#f6aa50'],
     decor: (r, t, _c, W, _H, G0) => {
       // a sandworm swims under the line, its back breaking the surface halfway
-      const p = (t % 20) / 20, x = Math.round(p * (W + 40) - 20)
+      const p = (t % 30) / 30, x = Math.round(p * (W + 40) - 20)
       const up = Math.round(Math.sin(p * Math.PI) * 3)
       for (let k = 0; k < 5; k++) r(x - k * 3, G0 + 3 - (k === 2 ? up : Math.max(0, up - 2)), 3, 2, '#8a6040')
       // wind carries a few grains
-      for (let k = 0; k < 4; k++) r(Math.round((t * 30 + k * 53) % W), G0 - 4 - ((k * 7) % 9), 1, 1, '#e6c290')
+      for (let k = 0; k < 4; k++) r(Math.round((t * 12 + k * 53) % W), G0 - 4 - ((k * 7) % 9), 1, 1, '#e6c290')
     },
   },
   {
@@ -127,7 +127,7 @@ export const THEMES: Theme[] = [
     tree: ['#5aa0aa', '#bef0f5'],
     decor: (r, t, _c, W, _H, G0) => {
       // a patch of light drifts between the crystals
-      const x = Math.round((t * 14) % W), y = G0 - 10 + Math.round(Math.sin(t) * 3)
+      const x = Math.round((t * 7) % W), y = G0 - 10 + Math.round(Math.sin(t) * 3)
       r(x, y - 1, 1, 3, '#ffffff'); r(x - 1, y, 3, 1, '#ffffff')
     },
   },
@@ -143,7 +143,7 @@ export const THEMES: Theme[] = [
     decor: (r, t, camX, W, _H, G0) => {
       // rows of vias, and a data packet running the trace
       for (let x = 8 - (camX % 16); x < W; x += 16) for (const y of [8, 24]) r(x, y, 2, 2, '#2a7a4c')
-      r(Math.round((t * 40) % W), G0, 3, 2, '#ffe08a')
+      r(Math.round((t * 10) % W), G0, 3, 2, '#ffe08a')
     },
   },
   {
@@ -204,8 +204,8 @@ export const THEMES: Theme[] = [
         r(x, y, 1, 1, Math.floor(t * 2 + k) % 7 === 0 ? '#ffffff' : '#6a7090')
       }
       const p = t % 15
-      if (p < 0.8) {
-        const x = Math.round(40 + hash(Math.floor(t / 15)) * 120 + p * 30), y = Math.round(6 + p * 8)
+      if (p < 3) {
+        const x = Math.round(40 + hash(Math.floor(t / 15)) * 120 + p * 8), y = Math.round(6 + p * 2.5)
         r(x, y, 2, 1, '#ffffff'); r(x - 2, y - 1, 2, 1, '#9aa4d0')
       }
     },
@@ -231,13 +231,14 @@ export const FOLK: Record<string, string> = {
   pcb: '#e8ece2', ink: '#3c3c3a', blueprint: '#e2ecff', slide: '#6a3a8a', sky: '#c8d0f0',
 }
 
+// anything that moves keeps to about a pixel a frame (8 px/s at the band's 8 fps): faster, it jumps
 export const EVENTS: Record<string, SheetEvent> = {
   earth: {
     seconds: 9,
     draw: (r, p, t, W) => {
       // a shower crossing the sheet, a rainbow after it
       const n = Math.round(Math.sin(p * Math.PI) * 30)
-      for (let k = 0; k < n; k++) r(Math.round(hash(k) * W), Math.round(((t * 40 + hash(k + 7) * 50) % 46)), 1, 2, '#7ab4dc')
+      for (let k = 0; k < n; k++) r(Math.round(hash(k) * W), Math.round(((t * 24 + hash(k + 7) * 50) % 46)), 1, 3, '#7ab4dc')
       if (p > 0.6) ['#e06a50', '#e2ba5c', '#80ae5c', '#528cbe'].forEach((c, k) => r(W - 60 + k, 6 + k, 40 - k * 2, 1, c))
     },
     words: { zh: '下了一阵雨。在这里，雨是从纸的一边落到另一边的。', ja: 'ひとしきり雨が降った。ここでは雨は紙の端から端へ降る。', en: 'A shower passed. Here, rain falls from one edge of the paper to the other.' },
@@ -253,7 +254,7 @@ export const EVENTS: Record<string, SheetEvent> = {
     draw: (r, p, t, W, _H, G0) => {
       // a sandstorm: streaks blowing across
       const n = Math.round(Math.sin(p * Math.PI) * 40)
-      for (let k = 0; k < n; k++) r(Math.round((hash(k) * W + t * 90) % W), Math.round(hash(k + 3) * (G0 - 4)), 4, 1, '#e6c290')
+      for (let k = 0; k < n; k++) r(Math.round((hash(k) * W + t * 30) % W), Math.round(hash(k + 3) * (G0 - 4)), 4, 1, '#e6c290')
     },
     words: { zh: '起了沙暴。沙粒从线上刮过去，一粒都没离开这条线。', ja: '砂嵐。砂粒が線の上を吹き抜けていく。一粒も線から外れない。', en: 'A sandstorm. Grains blew along the line, and not one left it.' },
   },
@@ -299,11 +300,11 @@ export const EVENTS: Record<string, SheetEvent> = {
     words: { zh: '我走过的地方打出了一串火花。我的截面把两条线连到了一起——在它们那里，这叫短路。', ja: '通ったところで火花が散った。私の断面が二本の線をつないでしまった。あちらでは、これをショートと呼ぶ。', en: 'Sparks flew where I passed. My cross-section joined two traces together; down there, that’s called a short circuit.' },
   },
   ink: {
-    seconds: 9,
+    seconds: 24,
     draw: (r, p, _t, W) => {
       // a few birds, single brushstrokes, crossing the sky
       for (let k = 0; k < 3; k++) {
-        const x = Math.round(p * (W + 30) - 15 + k * 8), y = 8 + k * 3 + Math.round(Math.sin(p * 12 + k) * 1)
+        const x = Math.round(p * (W + 30) - 15 + k * 8), y = 8 + k * 3 + Math.round(Math.sin(p * 32 + k) * 1)
         r(x, y, 2, 1, '#3c3c3a'); r(x + 2, y - 1, 2, 1, '#3c3c3a')
       }
     },
@@ -313,23 +314,23 @@ export const EVENTS: Record<string, SheetEvent> = {
     seconds: 6,
     draw: (r, p, _t, W, _H, G0) => {
       // the red pen circling something on the plan
-      const x = Math.round(W * 0.5), y = G0 - 8, n = Math.round(p * 16)
-      for (let k = 0; k < n; k++) r(x + Math.round(Math.cos((k / 16) * Math.PI * 2) * 9), y + Math.round(Math.sin((k / 16) * Math.PI * 2) * 5), 1, 1, '#f06450')
+      const x = Math.round(W * 0.5), y = G0 - 8, n = Math.round(p * 40)
+      for (let k = 0; k < n; k++) r(x + Math.round(Math.cos((k / 40) * Math.PI * 2) * 9), y + Math.round(Math.sin((k / 40) * Math.PI * 2) * 5), 1, 1, '#f06450')
     },
     words: { zh: '红笔在图纸上圈了一处。图纸没说为什么。', ja: '赤ペンが図面のどこかを丸で囲んだ。理由は書いていない。', en: 'The red pen circled a spot on the plan. The plan does not say why.' },
   },
   slide: {
-    seconds: 8,
-    draw: (r, p, _t, W, _H, G0) => {
-      // a white cell chasing a bacterium down the line, and catching it
-      const bx = Math.round(p * W * 0.8 + 20), wx = Math.round(p * W * 0.85 + 4)
+    seconds: 18,
+    draw: (r, p, _t, _W, _H, G0) => {
+      // a white cell chasing a bacterium down the line, and catching it at about 14 seconds
+      const e = p * 18, bx = Math.round(40 + e * 6), wx = Math.round(4 + e * 8.5)
       if (wx < bx - 2) r(bx, G0 - 3, 3, 1, '#4a8a3a')
       r(wx - 2, G0 - 5, 5, 4, '#f4f0f2'); r(wx - 1, G0 - 4, 2, 2, '#8a5aa0')
     },
     words: { zh: '一个白细胞追上了一个细菌，把它吞了。', ja: '白血球が細菌に追いついて、飲み込んだ。', en: 'A white cell caught up with a bacterium and swallowed it.' },
   },
   sky: {
-    seconds: 7,
+    seconds: 24,
     draw: (r, p, _t, W) => {
       // a comet crossing, tail behind it
       const x = Math.round(p * (W + 40) - 20), y = Math.round(6 + p * 14)
