@@ -71,9 +71,11 @@ const peek = (output: unknown) => {
 const status = (c: { isRunning: boolean; isErrored: boolean; isInterrupted: boolean }) =>
   c.isRunning ? 'RUNNING' : c.isInterrupted ? 'ABORTED' : c.isErrored ? 'ERROR' : ''
 
-// open the side pane, or re-title it: its frame shows the sheet's name, in the language now in use
+// open the side pane, or re-title it: its frame shows the sheet's name, in the language now in use.
+// Never awaited: $.ui.open settles only once a surface draws the pane, which at a session's start can
+// be never, and a session.start waiting on it registered no command and started no clock
 function openPane($: EngineInterface) {
-  return $.ui.open({ id: PANE, title: tr(themeOf(lineland.themeId()).name) })
+  void $.ui.open({ id: PANE, title: tr(themeOf(lineland.themeId()).name) })
 }
 
 // a solid title bar over a panel
@@ -106,7 +108,7 @@ async function settle($: EngineInterface, l: Lang) {
   setLang(l)
   await update($, settled, () => l)
   await registerCommand($)
-  if (place === 'pane') await openPane($)
+  if (place === 'pane') openPane($)
 }
 
 // /lineland lang <zh|ja|en|auto>: pick the language here. It is kept past this session in the
@@ -187,7 +189,7 @@ export const register: Register = (on, options) => {
     }
     lineland.load(await read($, line), id)
     await registerCommand($)
-    if (place === 'pane') void openPane($)
+    if (place === 'pane') openPane($)
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
@@ -212,8 +214,8 @@ export const register: Register = (on, options) => {
       await $.store.set('place', v)
       if (v === 'band' && options.place === 'pane') return { text: tr(W.place.band) + ' ' + tr(W.place.pinned) }
       place = v
-      if (v === 'pane') await openPane($)
-      else await $.ui.close({ id: PANE })
+      if (v === 'pane') openPane($)
+      else void $.ui.close({ id: PANE })
       $.ui.invalidate('ui.render')
       return { text: tr(v === 'pane' ? W.place.pane : W.place.band) }
     }
@@ -241,7 +243,7 @@ export const register: Register = (on, options) => {
     await update($, sheet, () => pick.id)
     lineland.setTheme(pick.id)
     lineland.say(pick.intro)
-    if (place === 'pane') await openPane($)
+    if (place === 'pane') openPane($)
     return { text: fill(W.command.switched, { name: tr(pick.name) }) }
   })
 
