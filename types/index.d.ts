@@ -6,6 +6,9 @@ export type Lang = 'zh' | 'ja' | 'en'
 
 // Lineland: one cell of the line, 8 art pixels wide
 export type Cell = 'grass' | 'sand' | 'water' | 'rock' | 'peak' | 'forest' | 'rift'
+// a wonder standing on the line at cell i (hooks/wonders.ts): the stele, a command's or a file's
+// monument, a milestone, or a bridge over an error's rift
+export type Mark = { i: number; kind: string; label?: string; n?: number; shape?: string; tool?: string }
 // what Claude Code is doing, as the character wears it over its head
 export type Status =
   | 'idle' | 'prompt' | 'requesting' | 'thinking' | 'responding' | 'preparing'
@@ -29,6 +32,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    linecat: { meter: Meter | null; open: string[]; run: Run; line: Cell[]; scene: Scene | null; theme: string | null; lang: Lang | null }
+    linecat: { meter: Meter | null; open: string[]; run: Run; line: Cell[]; scene: Scene | null; theme: string | null; lang: Lang | null; marks: Mark[] }
   }
 }

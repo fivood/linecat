@@ -4,10 +4,11 @@
 // Claude Code is doing over its head; the band's left half draws it. The sheet is one of the
 // game's ten (hooks/themes.ts), picked per session.
 
-import type { Cell, Scene, Status } from '../types'
+import type { Cell, Mark, Scene, Status } from '../types'
 import { SPRITE_SIZE, SPRITES } from './sprite'
 import { tr, W as WORDS, type Words } from './i18n'
-import { drawTree, themeOf, type Draw } from './themes'
+import { drawTree, EVENTS, FOLK, themeOf, type Draw } from './themes'
+import { commandKind, drawMark, fileShape, lineOf, MILES } from './wonders'
 
 export const FPS = 8
 const W = 200, H = 56, G0 = 48, CELL = 8      // view in art pixels, ground line, one cell's width
@@ -17,16 +18,10 @@ const PAPER = '#fbfaf7', INK = '#4e4b42', AMBER = '#c8901e', RED = '#b2533e'
 // per-pose frame time: the export's 100ms breathes too fast at rest
 const MS: Record<string, number> = { idle_front: 600, idle_back: 600, sleep_front: 900, sleep_back: 900 }
 
-const GROW: Record<keyof typeof WORDS.grow, Cell[]> = {
-  read: ['water', 'water'],
-  run: ['rock', 'peak', 'rock'],
-  edit: ['forest', 'forest'],
-  error: ['rift'],
-  other: ['sand'],
-}
-const kindOf = (tool: string, isBad: boolean): keyof typeof GROW =>
-  isBad ? 'error'
-  : /^(Read|Grep|Glob|LS|WebFetch|WebSearch|NotebookRead)$/.test(tool) ? 'read'
+// what kind of land a tool grows (its shapes are SHAPES, below)
+type Kind = keyof typeof WORDS.grow
+const kindOf = (tool: string): Kind =>
+  /^(Read|Grep|Glob|LS|WebFetch|WebSearch|NotebookRead)$/.test(tool) ? 'read'
   : /^(Bash|PowerShell)$/.test(tool) ? 'run'
   : /^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool) ? 'edit'
   : 'other'
@@ -56,16 +51,28 @@ const LABEL: Record<Status, string> = {
 }
 
 // --- the sim ---------------------------------------------------------------------------------
-// the module's own; a reload starts it over from the stored line
+// the module's own; a reload starts it over from the stored line and marks
 const sim = {
-  cells: [] as Cell[], t: 0, x: 12, dir: 1, target: 12, rest: 0, anim: 0,
+  cells: [] as Cell[], marks: [] as Mark[], t: 0, x: 12, dir: 1, target: 12, rest: 0, anim: 0,
   said: null as Words | null, sayT: 0, lastEvent: 0, saidKind: {} as Record<string, number>, theme: 'earth',
+  // how often each command kind and each file came up; errors whose rift has no bridge yet
+  cmds: new Map<string, number>(), files: new Map<string, number>(), rifts: [] as { i: number; tool: string }[],
+  // the residents, and the sheet's next event
+  folk: [] as { x: number; dir: number; rest: number }[],
+  evt: { start: 0, until: 0, next: 60 },
+  // when each mark last spoke, so walking past it again soon stays quiet
+  heard: {} as Record<string, number>,
 }
 
 export const cells = () => sim.cells
-export function load(stored: readonly Cell[], theme: string) {
+export const marks = () => sim.marks
+export function load(stored: readonly Cell[], theme: string, storedMarks: readonly Mark[] = []) {
   sim.cells = stored.length ? [...stored] : Array<Cell>(6).fill('grass')
+  sim.marks = storedMarks.map(m => ({ ...m }))
   sim.theme = theme
+  const end = sim.cells.length * CELL
+  sim.folk = Array.from({ length: 3 }, (_, k) => ({ x: 16 + Math.random() * Math.max(8, end - 32), dir: k % 2 ? 1 : -1, rest: Math.random() * 4 }))
+  sim.evt = { start: 0, until: 0, next: sim.t + 40 + Math.random() * 60 }
 }
 // redraw the same line on another sheet
 export const setTheme = (id: string) => { sim.theme = id }
@@ -75,11 +82,54 @@ export function say(words: Words) {
   sim.said = words
   sim.sayT = 10
 }
+// a mark's words with its label and count filled in, in every language
+function sayMark(m: Mark) {
+  const w = lineOf(m)
+  const fill = (s: string) => s.replace('{label}', m.label ?? '').replace('{n}', String(m.n ?? 1))
+  say({ zh: fill(w.zh), ja: fill(w.ja), en: fill(w.en) })
+  sim.heard[m.kind + m.i] = sim.t
+}
+// the first thing the person says, carved into a stele where the character fell in (cell 2 of the
+// six it starts on); one per line
+export function stele(text: string) {
+  if (sim.marks.some(m => m.kind === 'stele')) return false
+  const line = text.replace(/\s+/g, ' ').trim()
+  const label = line.length > 24 ? line.slice(0, 23) + '…' : line
+  const mark: Mark = { i: 2, kind: 'stele', label }
+  sim.marks.push(mark)
+  sayMark(mark)
+  return true
+}
+// three flat cells with a wonder standing in the middle one
+function raise(m: Omit<Mark, 'i'>) {
+  sim.cells.push('grass', 'grass', 'grass')
+  const mark: Mark = { ...m, i: sim.cells.length - 2 }
+  sim.marks.push(mark)
+  sayMark(mark)
+}
+function milestones() {
+  for (const n of MILES) {
+    if (sim.cells.length >= n && !sim.marks.some(m => m.kind === 'mile' && m.n === n)) raise({ kind: 'mile', n })
+  }
+}
 
-// a tool call grows the line where it ends and sends the character there
-export function grow(tool: string, isBad: boolean) {
-  const kind = kindOf(tool, isBad)
-  sim.cells.push(...GROW[kind])
+// the land a call grows, in one of a few sizes so no two stretches look alike
+function pick<T>(xs: readonly T[]): T {
+  return xs[Math.floor(Math.random() * xs.length)]!
+}
+const SHAPES: Record<Kind, Cell[][]> = {
+  read: [['water'], ['water', 'water'], ['water', 'water', 'water']],
+  run: [['rock', 'peak', 'rock'], ['rock', 'peak', 'peak', 'rock'], ['rock', 'rock', 'peak', 'rock'], ['peak', 'rock']],
+  edit: [['forest'], ['forest', 'forest'], ['grass', 'forest', 'forest', 'forest']],
+  error: [['rift']],
+  other: [['sand'], ['sand', 'grass']],
+}
+
+// a tool call starting: the line grows where it ends, the character heads there, and a command or
+// a file that keeps coming up raises its wonder
+export function grow(tool: string, input?: unknown) {
+  const kind = kindOf(tool)
+  sim.cells.push(...pick(SHAPES[kind]))
   sim.lastEvent = sim.t
   sim.target = sim.cells.length * CELL - 4
   sim.rest = 0
@@ -87,27 +137,80 @@ export function grow(tool: string, isBad: boolean) {
     sim.saidKind[kind] = sim.t
     say(WORDS.grow[kind])
   }
+  const i = (input ?? {}) as Record<string, unknown>
+  if (/^(Bash|PowerShell)$/.test(tool) && typeof i.command === 'string') {
+    const ck = commandKind(i.command)
+    if (ck) {
+      const n = (sim.cmds.get(ck) ?? 0) + 1
+      sim.cmds.set(ck, n)
+      const had = sim.marks.find(m => m.kind === ck)
+      if (had) had.n = n
+      else raise({ kind: ck, n })
+    }
+  }
+  if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool) && typeof i.file_path === 'string') {
+    const name = i.file_path.split(/[\\/]/).pop() || i.file_path
+    const n = (sim.files.get(name) ?? 0) + 1
+    sim.files.set(name, n)
+    const had = sim.marks.find(m => m.kind === 'file' && m.label === name)
+    if (had) had.n = n
+    else if (n >= 3) raise({ kind: 'file', label: name, shape: fileShape(name), n })
+  }
+  milestones()
 }
 
-const lift = (c?: Cell) => (c === 'peak' ? 14 : c === 'rock' ? 5 : c === 'water' ? -2 : 0)
+// a tool call ending: a failure tears a rift; the same tool working again bridges its last open one
+export function done(tool: string, isBad: boolean) {
+  if (isBad) {
+    sim.cells.push('rift')
+    sim.rifts.push({ i: sim.cells.length - 1, tool })
+    if (sim.t - (sim.saidKind.error ?? -99) > 60) {
+      sim.saidKind.error = sim.t
+      say(WORDS.grow.error)
+    }
+    return
+  }
+  const k = sim.rifts.map(r => r.tool).lastIndexOf(tool)
+  if (k < 0) return
+  const [rift] = sim.rifts.splice(k, 1)
+  const mark: Mark = { i: rift!.i, kind: 'bridge' }
+  sim.marks.push(mark)
+  sayMark(mark)
+}
+
+// height of the land in a cell: mountains and rocks vary from cell to cell, but always the same for
+// the same cell, so the line does not shift under the character
+const vary = (i: number, n: number) => ((i * 7919 + 13) % 17) % (n + 1)
+const lift = (c: Cell | undefined, i: number) =>
+  c === 'peak' ? 11 + vary(i, 6) : c === 'rock' ? 4 + vary(i, 3) : c === 'water' ? -2 : 0
 const ground = (x: number) => {
   const u = x / CELL - 0.5, i = Math.floor(u), f = u - i
-  return lift(sim.cells[i]) * (1 - f) + lift(sim.cells[i + 1]) * f
+  return lift(sim.cells[i], i) * (1 - f) + lift(sim.cells[i + 1], i + 1) * f
 }
-// nothing to stand on over a rift: hop across it
+const isBridged = (i: number) => sim.marks.some(m => m.kind === 'bridge' && m.i === i)
+// nothing to stand on over an unbridged rift, and a resident in the way: hop over either
 const standY = (x: number) => {
-  const hop = sim.cells[Math.floor(x / CELL)] === 'rift' ? Math.sin((Math.PI * (((x % CELL) + CELL) % CELL)) / CELL) * 8 : 0
+  const i = Math.floor(x / CELL)
+  const isRift = sim.cells[i] === 'rift'
+  // over a bridge the character walks on its deck, two pixels up
+  let hop = isRift ? (isBridged(i) ? 2 : Math.sin((Math.PI * (((x % CELL) + CELL) % CELL)) / CELL) * 8) : 0
+  for (const f of sim.folk) {
+    const d = Math.abs(f.x - x)
+    if (d < 6) hop = Math.max(hop, Math.cos((d / 6) * (Math.PI / 2)) * 7)
+  }
   return G0 - ground(x) - hop
 }
 
-// one frame; true when the character walked into the blank and unfolded a cell
+// one frame; true when the line or its marks changed
 export function tick(dt: number): boolean {
   sim.t += dt
   const end = sim.cells.length * CELL
   const isSleepy = sim.t - sim.lastEvent > SLEEPY_S && st.base === 'idle'
+  let isChanged = false
+  const here = Math.floor(sim.x / CELL)
 
   if (sim.rest > 0) sim.rest -= dt
-  else if (Math.abs(sim.target - sim.x) < 0.5 && sim.cells[Math.floor(sim.x / CELL)] === 'rift') {
+  else if (Math.abs(sim.target - sim.x) < 0.5 && sim.cells[here] === 'rift' && !isBridged(here)) {
     // never come to rest mid-hop over a rift: finish crossing it
     sim.target = sim.x + sim.dir * CELL
   } else if (Math.abs(sim.target - sim.x) < 0.5) {
@@ -124,11 +227,47 @@ export function tick(dt: number): boolean {
   sim.anim += dt
   if ((sim.sayT -= dt) <= 0) sim.said = null
 
+  // the residents amble about, turning at the ends, at water and at rifts. The line grows away from
+  // where they started, so one left far behind the character turns up again somewhere near it
+  for (const f of sim.folk) {
+    if (Math.abs(f.x - sim.x) > 180 && Math.random() < dt * 0.2) {
+      const nx = Math.min(end - 10, Math.max(10, sim.x + (Math.random() < 0.5 ? -1 : 1) * (40 + Math.random() * 60)))
+      const c = sim.cells[Math.floor(nx / CELL)]
+      if (c !== 'rift' && c !== 'water') f.x = nx
+    }
+    if (f.rest > 0) {
+      f.rest -= dt
+      continue
+    }
+    const nx = f.x + f.dir * 5 * dt, c = sim.cells[Math.floor(nx / CELL)]
+    if (nx < 8 || nx > end - 8 || c === 'rift' || c === 'water') f.dir = -f.dir
+    else f.x = nx
+    if (Math.random() < dt * 0.15) f.rest = 1 + Math.random() * 4
+  }
+
+  // a wonder speaks up when the character walks up to it, once every few minutes
+  if (!sim.said) {
+    for (const m of sim.marks) {
+      if (Math.abs(sim.x - (m.i * CELL + 4)) < 4 && sim.t - (sim.heard[m.kind + m.i] ?? -999) > 180) {
+        sayMark(m)
+        break
+      }
+    }
+  }
+
+  // the sheet's own event every minute or two, asleep or not; it is narrated only to someone around
+  const ev = EVENTS[sim.theme]
+  if (ev && sim.t >= sim.evt.next) {
+    sim.evt = { start: sim.t, until: sim.t + ev.seconds, next: sim.t + ev.seconds + 60 + Math.random() * 90 }
+    if (!sim.said && !isSleepy) say(ev.words)
+  }
+
   if (sim.x > end - 2 && sim.cells.length < 5000) {
     sim.cells.push('grass')
-    return true
+    milestones()
+    isChanged = true
   }
-  return false
+  return isChanged
 }
 
 // a sprite may ship only some poses; idle_front is the one every sprite must have
@@ -328,6 +467,27 @@ export function draw(scene: Scene, viewW = W): string {
       r(sx + 2, G0 + 2, 1, 1, th.rift[1]); r(sx + 5, G0 + 4, 1, 1, th.rift[1])
       if (th.id === 'ink') r(sx + 5, G0 - 5, 3, 3, th.rift[1])   // the red seal stamped beside the slip
     } else r(sx, G0, CELL, 2, th.cell[c])
+  }
+
+  // the sheet's event, while it lasts
+  const ev = EVENTS[th.id]
+  if (ev && v.t < sim.evt.until) ev.draw(r, Math.min(1, (v.t - sim.evt.start) / ev.seconds), v.t, viewW, H, G0)
+
+  // the wonders, each standing on the ground under its cell (a bridge on the line itself)
+  for (const m of sim.marks) {
+    const mx = m.i * CELL + 4 - v.camX
+    if (mx < -12 || mx > viewW + 12) continue
+    drawMark(r, m, mx, m.kind === 'bridge' ? G0 : Math.round(G0 - ground(m.i * CELL + 4)), v.t)
+  }
+
+  // the residents: short upright strokes, all the line lets them be
+  for (const f of sim.folk) {
+    const fx = Math.round(f.x - v.camX)
+    if (fx < -2 || fx > viewW) continue
+    const fy = Math.round(G0 - ground(f.x)), c = FOLK[th.id] ?? INK
+    // a head, a body, and legs that step while walking
+    const step = f.rest > 0 ? 0 : Math.floor(v.t * 4 + fx) % 2
+    r(fx, fy - 7, 2, 2, c); r(fx, fy - 4, 2, 3, c); r(fx - step, fy - 1, 1, 1, c); r(fx + 1 + step, fy - 1, 1, 1, c)
   }
 
   // the character: its frame box centred on catX, feet on the line

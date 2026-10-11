@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { EngineInterface } from 'claude-code'
-import type { Cell, Lang, Meter, Run, Scene } from '../types'
+import type { Cell, Lang, Mark, Meter, Run, Scene } from '../types'
 import { fill, fromSetting, fromText, setLang, tr, W } from './i18n'
 import * as lineland from './lineland'
 import { THEMES, themeOf } from './themes'
@@ -29,6 +29,8 @@ const meter = atom({ plugin: 'linecat', key: 'meter' } as const, null)
 const open = atom({ plugin: 'linecat', key: 'open' } as const, [] as string[])
 const run = atom({ plugin: 'linecat', key: 'run' } as const, { startedAt: 0, seconds: 0, tokens: 0 } as Run)
 const line = atom({ plugin: 'linecat', key: 'line' } as const, [] as Cell[])
+// the wonders standing on it
+const marks = atom({ plugin: 'linecat', key: 'marks' } as const, [] as Mark[])
 const scene = atom({ plugin: 'linecat', key: 'scene' } as const, null as Scene | null)
 // the Lineland sheet this session drew; kept in session state so a hot reload keeps it
 const sheet = atom({ plugin: 'linecat', key: 'theme' } as const, null as string | null)
@@ -106,6 +108,12 @@ async function guard<T>(step: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
+// the line and its wonders into session state, so a hot reload keeps them
+async function keep($: EngineInterface) {
+  await update($, line, () => [...lineland.cells()])
+  await update($, marks, () => lineland.marks().map(m => ({ ...m })))
+}
+
 // whether the language is known: picked in the settings, or settled by auto
 let isSettled = false
 // where the line is drawn: in the band above the prompt, or in a side pane of its own
@@ -181,13 +189,13 @@ export const register: Register = (on, options) => {
       lineland.say(pick.intro)
       return pick.id
     }, 'earth')
-    lineland.load(await guard(() => read($, line), []), id)
+    lineland.load(await guard(() => read($, line), []), id, await guard(() => read($, marks), []))
     walker?.cancel()
     // ponytail: ticks whether or not the band shows; gate it if it ever costs
     walker = $.clock.every(1000 / lineland.FPS, () => {
       const isGrown = lineland.tick(1 / lineland.FPS)
       void (async () => {
-        if (isGrown) await update($, line, () => [...lineland.cells()])
+        if (isGrown) await keep($)
         await update($, scene, () => lineland.scene())
       })().catch(() => {})
     })
@@ -273,13 +281,13 @@ export const register: Register = (on, options) => {
     const isMain = !e.agentId
     if (isMain) lineland.setStatus('tool', e.tool)
     // the land grows as the call starts, so the narration matches what runs; a failure tears a rift after it
-    lineland.grow(e.tool, false)
-    const store = () => void update($, line, () => [...lineland.cells()]).catch(() => {})
+    lineland.grow(e.tool, e.input)
+    const store = () => void keep($).catch(() => {})
     store()
     const r = await next(e)
     try {
       const isDenied = Boolean(r.deny)
-      if (isDenied || r.isError) lineland.grow(e.tool, true)
+      lineland.done(e.tool, isDenied || Boolean(r.isError))
       if (isMain) {
         lineland.setStatus(isTurnOn ? 'requesting' : 'idle')
         if (isDenied) lineland.flash('denied', e.tool)
@@ -314,6 +322,8 @@ export const register: Register = (on, options) => {
     lineland.flash('prompt', '', 1.5)
     // auto, with nothing settled yet: the script of the person's first prompt. Prompts a program
     // made (a task notification, a channel message) open with a tag and are passed over.
+    // the first thing said, carved into a stele; kept alongside, the prompt does not wait
+    if (!e.text.trimStart().startsWith('<') && e.text.trim() && lineland.stele(e.text)) void keep($).catch(() => {})
     // Settled alongside: the prompt goes on at once and unchanged.
     if (!isSettled && !e.text.trimStart().startsWith('<')) {
       const found = fromText(e.text)

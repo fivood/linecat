@@ -220,3 +220,120 @@ export function drawTree(r: Draw, th: Theme, sx: number, G0: number, i: number) 
     case 'nebula': r(sx, G0 - 8, 8, 5, a); r(sx + 2, G0 - 7, 4, 3, b); break
   }
 }
+
+// --- the people of each sheet, and its one natural event --------------------------------------
+// Lineland's residents are short strokes on the line in the sheet's own colour (the game's civ.js
+// gives every terrain its own people); the character can only hop over them. Every minute or two a
+// sheet has its event: a moment of weather, wildlife or physics that crosses the view and goes.
+
+export type SheetEvent = {
+  seconds: number
+  // p runs 0..1 over the event; W/H the view, G0 the line
+  draw: (r: Draw, p: number, t: number, W: number, H: number, G0: number) => void
+  words: Words
+}
+
+export const FOLK: Record<string, string> = {
+  earth: '#6c5a48', foil: '#8a7aa8', dune: '#7a4a2a', solaris: '#3c8c8c', crystal: '#7a64a8',
+  pcb: '#e8ece2', ink: '#3c3c3a', blueprint: '#e2ecff', slide: '#6a3a8a', sky: '#c8d0f0',
+}
+
+export const EVENTS: Record<string, SheetEvent> = {
+  earth: {
+    seconds: 9,
+    draw: (r, p, t, W) => {
+      // a shower crossing the sheet, a rainbow after it
+      const n = Math.round(Math.sin(p * Math.PI) * 30)
+      for (let k = 0; k < n; k++) r(Math.round(hash(k) * W), Math.round(((t * 40 + hash(k + 7) * 50) % 46)), 1, 2, '#7ab4dc')
+      if (p > 0.6) ['#e06a50', '#e2ba5c', '#80ae5c', '#528cbe'].forEach((c, k) => r(W - 60 + k, 6 + k, 40 - k * 2, 1, c))
+    },
+    words: { zh: '下了一阵雨。在这里，雨是从纸的一边落到另一边的。', ja: 'ひとしきり雨が降った。ここでは雨は紙の端から端へ降る。', en: 'A shower passed. Here, rain falls from one edge of the paper to the other.' },
+  },
+  foil: {
+    seconds: 8,
+    draw: (r, p, _t, W) => {
+      // a flattened planet sliding by: rings of core, mantle, crust, ocean, air
+      const x = Math.round(p * (W + 40) - 20)
+      ;['#f2d07a', '#d6805c', '#a87860', '#5878c4', '#c8dcfa'].forEach((c, k) => r(x - 10 + k * 2, 10 + k, 20 - k * 4, 1, c))
+    },
+    words: { zh: '一颗压平的行星从旁边滑过去，一圈一圈，地核在最里面。', ja: '平たくなった惑星がそばを滑っていった。輪の一番内側が核。', en: 'A flattened planet slid past, ring by ring, its core in the middle.' },
+  },
+  dune: {
+    seconds: 10,
+    draw: (r, p, t, W, _H, G0) => {
+      // a sandstorm: streaks blowing across
+      const n = Math.round(Math.sin(p * Math.PI) * 40)
+      for (let k = 0; k < n; k++) r(Math.round((hash(k) * W + t * 90) % W), Math.round(hash(k + 3) * (G0 - 4)), 4, 1, '#e6c290')
+    },
+    words: { zh: '起了沙暴。沙粒从线上刮过去，一粒都没离开这条线。', ja: '砂嵐。砂粒が線の上を吹き抜けていく。一粒も線から外れない。', en: 'A sandstorm. Grains blew along the line, and not one left it.' },
+  },
+  solaris: {
+    seconds: 8,
+    draw: (r, p, _t, W, _H, G0) => {
+      // the ocean raising a symmetriad and taking it back
+      const h = Math.round(Math.sin(p * Math.PI) * 18), x = Math.round(W * 0.7)
+      r(x - 1, G0 - h, 3, h, '#3c8c8c'); r(x - 4, G0 - Math.round(h * 0.6), 9, 1, '#78c8be'); r(x - 3, G0 - Math.round(h * 0.85), 7, 1, '#78c8be')
+    },
+    words: { zh: '海立起了一座对称体，又把它收了回去。', ja: '海が対称体をひとつ立ち上げ、また引き戻した。', en: 'The ocean raised a symmetriad and took it back.' },
+  },
+  crystal: {
+    seconds: 7,
+    draw: (r, p, t, W, _H, G0) => {
+      // a crystal blooming out of the line, glinting, and dimming
+      const h = Math.round(Math.min(1, p * 3) * 14), x = Math.round(W * 0.35)
+      r(x, G0 - h, 2, h, '#8c78b4'); r(x + 3, G0 - Math.round(h * 0.7), 2, Math.round(h * 0.7), '#dcc8fa'); r(x - 3, G0 - Math.round(h * 0.5), 2, Math.round(h * 0.5), '#8c78b4')
+      if (Math.floor(t * 4) % 2) r(x, G0 - h - 2, 1, 1, '#ffffff')
+    },
+    words: { zh: '一簇晶体从线上长了出来。光在里面来回走，找不到出口。', ja: '線から結晶がひとかたまり生えてきた。光が中を行き来して出口を探している。', en: 'A crystal cluster grew out of the line. Light wanders inside it, looking for the way out.' },
+  },
+  pcb: {
+    seconds: 5,
+    draw: (r, p, t, W, _H, G0) => {
+      // a short circuit: sparks, then a curl of smoke
+      const x = Math.round(W * 0.6)
+      if (p < 0.4) for (let k = 0; k < 6; k++) r(x + Math.round(Math.cos(k + t * 9) * 4), G0 - 2 + Math.round(Math.sin(k + t * 9) * 3), 1, 1, '#ffe08a')
+      else r(x + Math.round((p - 0.4) * 6), G0 - 4 - Math.round((p - 0.4) * 30), 2, 2, '#6a6a6a')
+    },
+    words: { zh: '短路了一下。电从走线里漏出来，留下一点焦味。', ja: '一瞬ショートした。電気が配線から漏れて、焦げた匂いが残った。', en: 'A short circuit. Current leaked from the trace and left a smell of scorching.' },
+  },
+  ink: {
+    seconds: 9,
+    draw: (r, p, _t, W) => {
+      // a few birds, single brushstrokes, crossing the sky
+      for (let k = 0; k < 3; k++) {
+        const x = Math.round(p * (W + 30) - 15 + k * 8), y = 8 + k * 3 + Math.round(Math.sin(p * 12 + k) * 1)
+        r(x, y, 2, 1, '#3c3c3a'); r(x + 2, y - 1, 2, 1, '#3c3c3a')
+      }
+    },
+    words: { zh: '几只鸟飞过去，每只都只是一笔。', ja: '鳥が何羽か飛んでいった。どれも筆のひと払い。', en: 'A few birds flew over, each a single brushstroke.' },
+  },
+  blueprint: {
+    seconds: 6,
+    draw: (r, p, _t, W, _H, G0) => {
+      // the red pen circling something on the plan
+      const x = Math.round(W * 0.5), y = G0 - 8, n = Math.round(p * 16)
+      for (let k = 0; k < n; k++) r(x + Math.round(Math.cos((k / 16) * Math.PI * 2) * 9), y + Math.round(Math.sin((k / 16) * Math.PI * 2) * 5), 1, 1, '#f06450')
+    },
+    words: { zh: '红笔在图纸上圈了一处。图纸没说为什么。', ja: '赤ペンが図面のどこかを丸で囲んだ。理由は書いていない。', en: 'The red pen circled a spot on the plan. The plan does not say why.' },
+  },
+  slide: {
+    seconds: 8,
+    draw: (r, p, _t, W, _H, G0) => {
+      // a white cell chasing a bacterium down the line, and catching it
+      const bx = Math.round(p * W * 0.8 + 20), wx = Math.round(p * W * 0.85 + 4)
+      if (wx < bx - 2) r(bx, G0 - 3, 3, 1, '#4a8a3a')
+      r(wx - 2, G0 - 5, 5, 4, '#f4f0f2'); r(wx - 1, G0 - 4, 2, 2, '#8a5aa0')
+    },
+    words: { zh: '一个白细胞追上了一个细菌，把它吞了。', ja: '白血球が細菌に追いついて、飲み込んだ。', en: 'A white cell caught up with a bacterium and swallowed it.' },
+  },
+  sky: {
+    seconds: 7,
+    draw: (r, p, _t, W) => {
+      // a comet crossing, tail behind it
+      const x = Math.round(p * (W + 40) - 20), y = Math.round(6 + p * 14)
+      r(x, y, 2, 2, '#ffffff')
+      for (let k = 1; k < 8; k++) r(x - k * 2, y - Math.round(k * 0.6), 2, 1, k < 4 ? '#c8d0f0' : '#6a7090')
+    },
+    words: { zh: '一颗彗星划过去。它要很多年才会回来。', ja: '彗星がひとつ横切った。戻ってくるのはずっと先だ。', en: 'A comet went by. It will be many years before it comes back.' },
+  },
+}
