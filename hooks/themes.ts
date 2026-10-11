@@ -30,6 +30,28 @@ const hash = (n: number) => {
   return s - Math.floor(s)
 }
 
+// a ball being pressed into the sheet, the way the foil does it (the game's flattened planets):
+// stage 0 is the ball, each stage after is wider and flatter with its layers showing, and stage 4 is
+// one line of colours, core in the middle. Steps, not motion: it stays smooth at the band's 8 fps.
+const FLAT = [[1, 1], [0.75, 1.5], [0.5, 2.2], [0.25, 3.2], [0.12, 4.4]] as const   // [ry, rx] in radii
+const PLANETS = [
+  ['#c8dcfa', '#5878c4', '#a87860', '#d6805c', '#f2d07a'],
+  ['#e6d2b4', '#c89a6a', '#a06a4a', '#f2d07a'],
+  ['#b4e0d0', '#46966e', '#846054', '#f2d07a'],
+]
+function flatten(r: Draw, x: number, y: number, R: number, stage: number, layers: string[]) {
+  const [fy, fx] = FLAT[stage]!
+  layers.forEach((c, k) => {
+    if (stage === 0 && k) return                            // a ball shows only its outside
+    const f = 1 - k / layers.length, rx = R * fx * f, ry = Math.max(0.4, R * fy * f)
+    for (let dy = -Math.floor(ry); dy <= ry; dy++) {
+      const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)))
+      r(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1, c)
+    }
+  })
+  if (stage === 0) r(Math.round(x - R / 2), Math.round(y - R / 2), 1, 1, '#ffffff')
+}
+
 export const THEMES: Theme[] = [
   {
     id: 'earth',
@@ -55,10 +77,13 @@ export const THEMES: Theme[] = [
     water: ['#5878c4', '#8caae6'], rift: ['#14141c', '#c8c8ff'],
     rock: '#a87860', peak: '#846054', cap: '#d2aa8c',
     tree: ['#46966e', '#96dca0'],
-    decor: (r, t, _c, W, H) => {
-      // an aftershock of flattening sweeps the sheet every twelve seconds
-      const x = Math.round(((t % 12) / 12) * (W + 20) - 10)
-      r(x, 0, 1, H, '#dcdcf6'); r(x - 3, 0, 1, H, '#ececfa')
+    decor: (r, t, camX, W) => {
+      // far off, one thing after another being pressed into the sheet; the last two lie where they fell
+      const P = 15, c = Math.floor(t / P), span = W + 40
+      for (let j = Math.max(0, c - 2); j <= c; j++) {
+        const x = (((((j % 3) / 3 + hash(j) / 4) * span - camX * 0.15) % span) + span) % span - 20   // a third each
+        flatten(r, x, 6 + hash(j + 9) * 14, 3 + hash(j + 5) * 2, j === c ? Math.min(4, Math.floor(((t % P) / P) * 6)) : 4, PLANETS[j % PLANETS.length]!)
+      }
     },
   },
   {
@@ -219,12 +244,9 @@ export const EVENTS: Record<string, SheetEvent> = {
   },
   foil: {
     seconds: 8,
-    draw: (r, p, _t, W) => {
-      // a flattened planet sliding by: rings of core, mantle, crust, ocean, air
-      const x = Math.round(p * (W + 40) - 20)
-      ;['#f2d07a', '#d6805c', '#a87860', '#5878c4', '#c8dcfa'].forEach((c, k) => r(x - 10 + k * 2, 10 + k, 20 - k * 4, 1, c))
-    },
-    words: { zh: '一颗压平的行星从旁边滑过去，一圈一圈，地核在最里面。', ja: '平たくなった惑星がそばを滑っていった。輪の一番内側が核。', en: 'A flattened planet slid past, ring by ring, its core in the middle.' },
+    // a planet close by, pressed into the sheet: air, ocean, crust, mantle, core
+    draw: (r, p, _t, W) => flatten(r, W * 0.5, 16, 8, Math.min(4, Math.floor(p * 6)), PLANETS[0]!),
+    words: { zh: '一颗行星被压进了这张纸：先是一个球，然后一层层摊开，地核在最里面。', ja: '惑星がひとつこの紙に押し込まれた。最初は球で、それから層ごとに広がり、核が一番内側に残った。', en: 'A planet was pressed into this sheet: a ball at first, then spread out layer by layer, its core in the middle.' },
   },
   dune: {
     seconds: 10,

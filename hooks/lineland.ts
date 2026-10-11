@@ -309,6 +309,9 @@ const STAND: Partial<Record<Status, string>> = {
   thinking: 'idle_back', preparing: 'walk_back', tool: 'walk_back', permission: 'idle_front', responding: 'walk_front',
 }
 
+// asleep, with no event on the sheet and nothing being said: nothing the band shows needs 8 fps
+export const isQuiet = () => current()[0] === 'idle' && sim.t - sim.lastEvent > SLEEPY_S && sim.t >= sim.evt.until && !sim.said
+
 export function scene(): Scene {
   const end = sim.cells.length * CELL
   const isMoving = sim.rest <= 0 && Math.abs(sim.target - sim.x) >= 0.5
@@ -452,6 +455,18 @@ export function draw(scene: Scene, viewW = W): string {
   // Each layer reads the session's own land at its own offset, so a command's mountain rises behind
   // the stretch of line it grew.
   if (VISTA.has(th.id)) {
+    // neighbouring columns that come out the same are drawn as one rect: the app parses every rect
+    // of every frame, and the vista is most of them
+    let run: { x: number; w: number; key: string; bands: [number, string][] } | null = null
+    const col = (sx: number, hp: number, c: string, hpk: number, cpk: string, hcap: number, ccap: string) => {
+      const key = `${hp}${c}${hpk}${hcap}`
+      if (run && run.key === key && run.x + run.w === sx) {
+        run.w += 2
+        return
+      }
+      if (run) for (const [h, c] of run.bands) r(run.x, G0 - run.bands[0]![0], run.w, h, c)
+      run = hp ? { x: sx, w: 2, key, bands: [[hp, c], [hpk, cpk], [hcap, ccap]] } : null
+    }
     for (const [off, p, alpha] of VLAYERS) {
       for (let sx = 0; sx < viewW; sx += 2) {
         const wx = sx + v.camX * p, u = wx / CELL + off, ci = Math.floor(u), f = u - ci
@@ -469,10 +484,11 @@ export function draw(scene: Scene, viewW = W): string {
         if (isWood) hh += (1 - Math.abs(((wx / 3) % 1) * 2 - 1)) * 0.07            // treetops, one point each
         const hp = Math.round(hh ** 0.8 * (14 + 22 * p))
         // in bands, not columns: woods or rock below, the peak colour on a mountain's upper part, snow on top
-        r(sx, G0 - hp, 2, hp, (isWood ? th.tree[0] : th.rock) + alpha)
-        if (hh > 0.42) r(sx, G0 - hp, 2, Math.round(hp * Math.min(0.6, (hh - 0.42) * 2.5)), th.peak + alpha)
-        if (hh > 0.6) r(sx, G0 - hp, 2, Math.max(1, Math.round(hp * 0.15)), th.cap + alpha)
+        col(sx, hp, (isWood ? th.tree[0] : th.rock) + alpha,
+          hh > 0.42 ? Math.round(hp * Math.min(0.6, (hh - 0.42) * 2.5)) : 0, th.peak + alpha,
+          hh > 0.6 ? Math.max(1, Math.round(hp * 0.15)) : 0, th.cap + alpha)
       }
+      col(viewW, 0, '', 0, '', 0, '')
     }
   }
 

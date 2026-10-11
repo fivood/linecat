@@ -54,19 +54,27 @@ for t in d['meta']['frameTags']:
     for f in fs:
         o += ['      [', *[f"        '{r}'," for r in rows(f)], '      ],']
     o += ['    ],', '  },']
+NEW_TO_RECTS = r'''// a frame as SVG rects: a run of one colour along a row, grown taller while the same run repeats
+// straight down the next rows (the pixels never overlap, so the order does not matter)
+function toRects(frame: string[]): string {
+  type Run = { x: number; y: number; w: number; h: number; c: string }
+  const open = new Map<string, Run>(), done: Run[] = []
+  frame.forEach((row, y) => {
+    const seen = new Set<string>()
+    for (const m of row.matchAll(/([^.])\1*/g)) {
+      const key = `${m.index},${m[0].length},${m[1]}`, o = open.get(key)
+      seen.add(key)
+      if (o) o.h++
+      else open.set(key, { x: m.index!, y, w: m[0].length, h: 1, c: PALETTE[m[1]!]! })
+    }
+    for (const [key, o] of open) if (!seen.has(key)) (done.push(o), open.delete(key))
+  })
+  return [...done, ...open.values()].map(o => `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="${o.c}"/>`).join('')
+}'''
 o += [
     '}',
     '',
-    '// a frame as SVG rects, one for each run of one colour along a row',
-    'function toRects(frame: string[]): string {',
-    "  let svg = ''",
-    '  frame.forEach((row, y) => {',
-    '    for (const m of row.matchAll(/([^.])\\1*/g)) {',
-    '      svg += `<rect x="${m.index}" y="${y}" width="${m[0].length}" height="1" fill="${PALETTE[m[1]!]}"/>`',
-    '    }',
-    '  })',
-    '  return svg',
-    '}',
+    *NEW_TO_RECTS.split(chr(10)),
     '',
     'export const SPRITES: Record<string, { ms: number; frames: string[] }> = Object.fromEntries(',
     '  Object.entries(ART).map(([tag, { ms, frames }]) => [tag, { ms, frames: frames.map(toRects) }]),',

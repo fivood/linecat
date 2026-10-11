@@ -670,15 +670,22 @@ const ART: Record<string, { ms: number; frames: string[][] }> = {
   },
 }
 
-// a frame as SVG rects, one for each run of one colour along a row
+// a frame as SVG rects: a run of one colour along a row, grown taller while the same run repeats
+// straight down the next rows (the pixels never overlap, so the order does not matter)
 function toRects(frame: string[]): string {
-  let svg = ''
+  type Run = { x: number; y: number; w: number; h: number; c: string }
+  const open = new Map<string, Run>(), done: Run[] = []
   frame.forEach((row, y) => {
+    const seen = new Set<string>()
     for (const m of row.matchAll(/([^.])\1*/g)) {
-      svg += `<rect x="${m.index}" y="${y}" width="${m[0].length}" height="1" fill="${PALETTE[m[1]!]}"/>`
+      const key = `${m.index},${m[0].length},${m[1]}`, o = open.get(key)
+      seen.add(key)
+      if (o) o.h++
+      else open.set(key, { x: m.index!, y, w: m[0].length, h: 1, c: PALETTE[m[1]!]! })
     }
+    for (const [key, o] of open) if (!seen.has(key)) (done.push(o), open.delete(key))
   })
-  return svg
+  return [...done, ...open.values()].map(o => `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="${o.c}"/>`).join('')
 }
 
 export const SPRITES: Record<string, { ms: number; frames: string[] }> = Object.fromEntries(

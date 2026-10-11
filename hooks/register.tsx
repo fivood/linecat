@@ -191,9 +191,13 @@ export const register: Register = (on, options) => {
     }, 'earth')
     lineland.load(await guard(() => read($, line), []), id, await guard(() => read($, marks), []))
     walker?.cancel()
-    // ponytail: ticks whether or not the band shows; gate it if it ever costs
+    // ponytail: ticks whether or not the band shows; gate it if it ever costs. The app redraws the
+    // whole picture on every scene it is handed, so while the cat sleeps with nothing going on it is
+    // handed one in four: 2 fps is plenty for the zzz and the sheet's slow motion
+    let frame = 0
     walker = $.clock.every(1000 / lineland.FPS, () => {
       const isGrown = lineland.tick(1 / lineland.FPS)
+      if (!isGrown && lineland.isQuiet() && frame++ % 4) return
       void (async () => {
         if (isGrown) await keep($)
         await update($, scene, () => lineland.scene())
