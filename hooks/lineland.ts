@@ -1,20 +1,25 @@
 // Lineland, after the desktop pet of A Visitor from the Fourth Dimension: one line of paper that
-// this session unfolds. Reads pool into water, commands push up mountains, edits grow trees,
-// errors tear rifts. The character (hooks/sprite.ts, a cat by default) walks it and wears what
+// this session unfolds. Reads pool into water, commands raise mountains, edits grow woods, errors
+// tear rifts; the line itself stays flat, and its mountains and woods stand in the vista behind it
+// on the sheets that have relief. The character (hooks/sprite.ts, a cat by default) walks it and wears what
 // Claude Code is doing over its head; the band's left half draws it. The sheet is one of the
 // game's ten (hooks/themes.ts), picked per session.
 
 import type { Cell, Mark, Scene, Status } from '../types'
 import { SPRITE_SIZE, SPRITES } from './sprite'
 import { tr, W as WORDS, type Words } from './i18n'
-import { drawTree, EVENTS, FOLK, themeOf, type Draw } from './themes'
-import { commandKind, drawMark, fileShape, lineOf, MILES } from './wonders'
+import { EVENTS, FOLK, themeOf, type Draw } from './themes'
+import { commandKind, drawMark, fileShape, lineOf, MILES, profileOf } from './wonders'
 
 export const FPS = 8
 const W = 200, H = 56, G0 = 48, CELL = 8      // view in art pixels, ground line, one cell's width
 const SPEED = 18                               // art px per second
 const SLEEPY_S = 120                           // seconds without session activity before it curls up
 const PAPER = '#fbfaf7', INK = '#4e4b42', AMBER = '#c8901e', RED = '#b2533e'
+// the sheets with relief, and the vista's layers: which stretch of the line each shows (in cells),
+// its parallax, and its opacity (a hex alpha, so the haze works on a light band and a dark one alike)
+const VISTA = new Set(['earth', 'dune', 'solaris', 'ink'])
+const VLAYERS = [[23, 0.25, '38'], [9, 0.45, '60'], [0, 0.7, '99']] as const
 // per-pose frame time: the export's 100ms breathes too fast at rest
 const MS: Record<string, number> = { idle_front: 600, idle_back: 600, sleep_front: 900, sleep_back: 900 }
 
@@ -62,6 +67,9 @@ const sim = {
   evt: { start: 0, until: 0, next: 60 },
   // when each mark last spoke, so walking past it again soon stays quiet
   heard: {} as Record<string, number>,
+  // at each wonder the character decides on a whim whether to climb it or walk across in front;
+  // climb is how high it stands now, easing toward the wonder's top or back to the line
+  whim: { key: '', up: false }, climb: 0,
 }
 
 export const cells = () => sim.cells
@@ -178,28 +186,41 @@ export function done(tool: string, isBad: boolean) {
   sayMark(mark)
 }
 
-// height of the land in a cell: mountains and rocks vary from cell to cell, but always the same for
-// the same cell, so the line does not shift under the character
+// The line is one row of the sheet, so it is flat: its cells differ in colour, not in height. Height
+// exists only where something three-dimensional stands on it (a wonder, which the character may climb)
+// and below it, in a rift's pit. Mountains and woods belong to the rows behind the line: the vista.
+// (The game's pet works the same way: web/js/pet.js groundAt, drawVista.)
+
+// how high a cell's land would stand, for the vista: mountains and rocks vary from cell to cell but
+// always the same for the same cell
 const vary = (i: number, n: number) => ((i * 7919 + 13) % 17) % (n + 1)
-const lift = (c: Cell | undefined, i: number) =>
-  c === 'peak' ? 11 + vary(i, 6) : c === 'rock' ? 4 + vary(i, 3) : c === 'water' ? -2 : 0
-const ground = (x: number) => {
-  const u = x / CELL - 0.5, i = Math.floor(u), f = u - i
-  return lift(sim.cells[i], i) * (1 - f) + lift(sim.cells[i + 1], i + 1) * f
-}
+const vistaLift = (c: Cell | undefined, i: number) =>
+  c === 'peak' ? 0.62 + vary(i, 6) * 0.03 : c === 'rock' ? 0.38 + vary(i, 3) * 0.03 : c === 'forest' ? 0.16 : 0
+
 const isBridged = (i: number) => sim.marks.some(m => m.kind === 'bridge' && m.i === i)
-// nothing to stand on over an unbridged rift, and a resident in the way: hop over either
-const standY = (x: number) => {
+// the wonder the character stands at, if any, and how high its top is under x (the higher of its two
+// feet, as the game's footing does)
+const CLIMB_MAX = 20
+function wonderAt(x: number) {
+  for (const m of sim.marks) {
+    if (m.kind === 'bridge') continue
+    const p = profileOf(m), dx = Math.round(x - (m.i * CELL + 4))
+    if (p.has(dx) || p.has(dx - 2) || p.has(dx + 2)) return { m, top: Math.max(p.get(dx - 2) ?? 0, p.get(dx) ?? 0, p.get(dx + 2) ?? 0) }
+  }
+  return null
+}
+// hops: over an unbridged rift, and over a resident in the way (in one dimension there is no way round)
+const hopAt = (x: number) => {
   const i = Math.floor(x / CELL)
-  const isRift = sim.cells[i] === 'rift'
-  // over a bridge the character walks on its deck, two pixels up
-  let hop = isRift ? (isBridged(i) ? 2 : Math.sin((Math.PI * (((x % CELL) + CELL) % CELL)) / CELL) * 8) : 0
+  let hop = sim.cells[i] === 'rift' ? (isBridged(i) ? 2 : Math.sin((Math.PI * (((x % CELL) + CELL) % CELL)) / CELL) * 8) : 0
   for (const f of sim.folk) {
     const d = Math.abs(f.x - x)
     if (d < 6) hop = Math.max(hop, Math.cos((d / 6) * (Math.PI / 2)) * 7)
   }
-  return G0 - ground(x) - hop
+  return hop
 }
+const standY = (x: number) => G0 - sim.climb - hopAt(x)
+const maxTop = (m: Mark) => Math.max(0, ...profileOf(m).values())
 
 // one frame; true when the line or its marks changed
 export function tick(dt: number): boolean {
@@ -226,6 +247,13 @@ export function tick(dt: number): boolean {
   }
   sim.anim += dt
   if ((sim.sayT -= dt) <= 0) sim.said = null
+
+  // a wonder underfoot: climb it or walk across, the cat's call, made once as it gets there
+  const at = wonderAt(sim.x)
+  const key = at ? at.m.kind + at.m.i : ''
+  if (key !== sim.whim.key) sim.whim = { key, up: !!at && maxTop(at.m) <= CLIMB_MAX && Math.random() < 0.5 }
+  const want = at && sim.whim.up ? at.top : 0
+  sim.climb += Math.max(-dt * 40, Math.min(dt * 40, want - sim.climb))
 
   // the residents amble about, turning at the ends, at water and at rifts. The line grows away from
   // where they started, so one left far behind the character turns up again somewhere near it
@@ -414,45 +442,33 @@ export function draw(scene: Scene, viewW = W): string {
   if (th.bg) r(0, 0, viewW, H, th.bg)
   th.decor?.(r, v.t, v.camX, viewW, H, G0)
 
-  for (let i = i0; i < i1; i++) if (cells[i] === 'forest') drawTree(r, th, i * CELL - v.camX, G0, i)
-
-  // mountains, one 2px column at a time, in the sheet's own way
-  const end = Math.min(v.camX + viewW, cells.length * CELL)
-  for (let x = Math.max(0, Math.floor(v.camX / 2) * 2); x < end; x += 2) {
-    const g = ground(x + 1)
-    if (g <= 0.5) continue
-    const top = Math.round(G0 - g), sx = x - v.camX, hgt = G0 - top
-    switch (th.peakStyle) {
-      case 'mount':
-        r(sx, top, 2, hgt, g > 9 ? th.peak : th.rock)
-        if (g > 10) r(sx, top, 2, 2, th.cap)
-        break
-      case 'contour':
-        r(sx, top, 2, hgt, g > 9 ? th.peak : th.rock)
-        for (let yy = G0 - 3; yy > top; yy -= 3) r(sx, yy, 2, 1, th.cap)
-        break
-      case 'facet':
-        r(sx, top, 2, hgt, ground(x + 3) > g ? th.cap : th.peak)
-        r(sx, top, 2, 1, '#ffffff')
-        break
-      case 'chip': {
-        const q = Math.round(g / 3) * 3, qt = G0 - q
-        r(sx, qt, 2, q, g > 9 ? th.peak : th.rock)
-        if ((x / 2) % 2 === 0) r(sx, qt - 1, 1, 1, th.cap)
-        break
+  // the vista: the rows of the sheet behind the line, three layers deep, farther ones paler and slower.
+  // Only sheets with relief have one (the game's VISTA: Earthlike, Dune, Solaris, Ink Wash); on a flat
+  // sheet (a slide, a board, a plan, the foil, the sky) nothing stands behind a line through it.
+  // Each layer reads the session's own land at its own offset, so a command's mountain rises behind
+  // the stretch of line it grew.
+  if (VISTA.has(th.id)) {
+    for (const [off, p, alpha] of VLAYERS) {
+      for (let sx = 0; sx < viewW; sx += 2) {
+        const wx = sx + v.camX * p, u = wx / CELL + off, ci = Math.floor(u), f = u - ci
+        const hAt = (i: number) => {
+          let h = 0
+          for (let d = -3; d <= 3; d++) h += vistaLift(cells[i + d], i + d) * (1 - Math.abs(d) / 4)
+          return h / 3.4
+        }
+        let hh = hAt(ci) * (1 - f) + hAt(ci + 1) * f
+        if (hh < 0.04) continue
+        // summits: heights rise and fall a little along the layer, in proportion, so a run of
+        // mountains comes to points instead of one plateau, and low ground stays low
+        hh *= 1 + ((1 - Math.abs(((wx / (13 + off)) % 1) * 2 - 1)) - 0.5) * 0.4
+        const isWood = cells[ci] === 'forest' && hh < 0.3
+        if (isWood) hh += (1 - Math.abs(((wx / 3) % 1) * 2 - 1)) * 0.07            // treetops, one point each
+        const hp = Math.round(hh ** 0.8 * (14 + 22 * p))
+        // in bands, not columns: woods or rock below, the peak colour on a mountain's upper part, snow on top
+        r(sx, G0 - hp, 2, hp, (isWood ? th.tree[0] : th.rock) + alpha)
+        if (hh > 0.42) r(sx, G0 - hp, 2, Math.round(hp * Math.min(0.6, (hh - 0.42) * 2.5)), th.peak + alpha)
+        if (hh > 0.6) r(sx, G0 - hp, 2, Math.max(1, Math.round(hp * 0.15)), th.cap + alpha)
       }
-      case 'column':
-        r(sx, top, 2, hgt, (x / 2) % 2 ? th.peak : th.rock)
-        r(sx, top, 2, 1, th.cap)
-        break
-      case 'star':
-        if ((x / 2) % 2 === 0) r(sx, top, 1, 1, g > 10 ? th.cap : th.peak)
-        break
-      case 'wash':
-        r(sx, top, 2, hgt, th.peak)
-        r(sx, Math.round(G0 - g / 2), 2, Math.round(g / 2), th.rock)
-        r(sx, top, 2, 1, th.cap)
-        break
     }
   }
 
@@ -473,18 +489,18 @@ export function draw(scene: Scene, viewW = W): string {
   const ev = EVENTS[th.id]
   if (ev && v.t < sim.evt.until) ev.draw(r, Math.min(1, (v.t - sim.evt.start) / ev.seconds), v.t, viewW, H, G0)
 
-  // the wonders, each standing on the ground under its cell (a bridge on the line itself)
+  // the wonders, standing on the line
   for (const m of sim.marks) {
     const mx = m.i * CELL + 4 - v.camX
     if (mx < -12 || mx > viewW + 12) continue
-    drawMark(r, m, mx, m.kind === 'bridge' ? G0 : Math.round(G0 - ground(m.i * CELL + 4)), v.t)
+    drawMark(r, m, mx, G0, v.t)
   }
 
   // the residents: short upright strokes, all the line lets them be
   for (const f of sim.folk) {
     const fx = Math.round(f.x - v.camX)
     if (fx < -2 || fx > viewW) continue
-    const fy = Math.round(G0 - ground(f.x)), c = FOLK[th.id] ?? INK
+    const fy = G0, c = FOLK[th.id] ?? INK
     // a head, a body, and legs that step while walking
     const step = f.rest > 0 ? 0 : Math.floor(v.t * 4 + fx) % 2
     r(fx, fy - 7, 2, 2, c); r(fx, fy - 4, 2, 3, c); r(fx - step, fy - 1, 1, 1, c); r(fx + 1 + step, fy - 1, 1, 1, c)

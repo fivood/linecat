@@ -128,6 +128,24 @@ export function drawMark(r: Draw, m: Mark, x: number, y: number, t: number) {
   }
 }
 
+// A wonder's silhouette: for each column from its middle, how high its top stands. Read off its own
+// drawing (smoke is not something to stand on), so climbing follows exactly what is drawn.
+const profiles = new Map<string, Map<number, number>>()
+export function profileOf(m: Mark): Map<number, number> {
+  const key = `${m.kind}:${m.shape ?? ''}:${m.n ?? ''}`
+  let p = profiles.get(key)
+  if (!p) {
+    const tops = new Map<number, number>()
+    drawMark((x, y, w, h, c) => {
+      if (c === C.smoke || w <= 0 || h <= 0) return
+      for (let dx = x; dx < x + w; dx++) tops.set(dx, Math.max(tops.get(dx) ?? 0, -y))
+    }, m, 0, 0, 0)
+    p = tops
+    profiles.set(key, p)
+  }
+  return p
+}
+
 // what each says when it appears, and again when the character walks up to it
 const LINES: Record<string, Words> = {
   stele: { zh: '一块碑，立在我落下来的地方。上面刻着：「{label}」', ja: '落ちてきた場所に碑が立っている。刻まれているのは「{label}」', en: 'A stele where I fell in. It reads: "{label}"' },
