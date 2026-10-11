@@ -64,7 +64,7 @@ const sim = {
   cmds: new Map<string, number>(), files: new Map<string, number>(), rifts: [] as { i: number; tool: string }[],
   // the residents, and the sheet's next event
   folk: [] as { x: number; dir: number; rest: number }[],
-  evt: { start: 0, until: 0, next: 60, ev: null as SheetEvent | null },
+  evt: { start: 0, until: 0, next: 60, at: 0, ev: null as SheetEvent | null },
   // when each mark last spoke, so walking past it again soon stays quiet
   heard: {} as Record<string, number>,
   // at each wonder the character decides on a whim whether to climb it or walk across in front;
@@ -80,7 +80,7 @@ export function load(stored: readonly Cell[], theme: string, storedMarks: readon
   sim.theme = theme
   const end = sim.cells.length * CELL
   sim.folk = Array.from({ length: 3 }, (_, k) => ({ x: 16 + Math.random() * Math.max(8, end - 32), dir: k % 2 ? 1 : -1, rest: Math.random() * 4 }))
-  sim.evt = { start: 0, until: 0, next: sim.t + 40 + Math.random() * 60, ev: null }
+  sim.evt = { start: 0, until: 0, next: sim.t + 40 + Math.random() * 60, at: 0, ev: null }
 }
 // redraw the same line on another sheet
 export const setTheme = (id: string) => {
@@ -290,7 +290,7 @@ export function tick(dt: number): boolean {
   // (on some sheets, half the time, something reaches in from outside the paper instead)
   if (EVENTS[sim.theme] && sim.t >= sim.evt.next) {
     const cross = CROSSINGS[sim.theme], ev = cross && Math.random() < 0.5 ? cross : EVENTS[sim.theme]!
-    sim.evt = { start: sim.t, until: sim.t + ev.seconds, next: sim.t + ev.seconds + 60 + Math.random() * 90, ev }
+    sim.evt = { start: sim.t, until: sim.t + ev.seconds, next: sim.t + ev.seconds + 60 + Math.random() * 90, at: sim.x, ev }
     if (!sim.said && !isSleepy) say(ev.words)
   }
 
@@ -491,7 +491,7 @@ export function draw(scene: Scene, viewW = W): string {
 
   // the sheet's event, while it lasts
   const ev = sim.evt.ev
-  if (ev && v.t < sim.evt.until) ev.draw(r, Math.min(1, (v.t - sim.evt.start) / ev.seconds), v.t, viewW, H, G0)
+  if (ev && v.t < sim.evt.until) ev.draw(r, Math.min(1, (v.t - sim.evt.start) / ev.seconds), v.t, viewW, H, G0, sim.evt.at - v.camX)
 
   // the wonders, standing on the line
   for (const m of sim.marks) {

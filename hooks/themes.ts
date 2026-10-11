@@ -196,8 +196,8 @@ export const themeOf = (id: string | null | undefined) => THEMES.find(t => t.id 
 
 export type SheetEvent = {
   seconds: number
-  // p runs 0..1 over the event; W/H the view, G0 the line
-  draw: (r: Draw, p: number, t: number, W: number, H: number, G0: number) => void
+  // p runs 0..1 over the event; W/H the view, G0 the line; ax where the character stood when it began
+  draw: (r: Draw, p: number, t: number, W: number, H: number, G0: number, ax: number) => void
   words: Words
 }
 
@@ -255,14 +255,26 @@ export const EVENTS: Record<string, SheetEvent> = {
     words: { zh: '一簇晶体从线上长了出来。光在里面来回走，找不到出口。', ja: '線から結晶がひとかたまり生えてきた。光が中を行き来して出口を探している。', en: 'A crystal cluster grew out of the line. Light wanders inside it, looking for the way out.' },
   },
   pcb: {
-    seconds: 5,
-    draw: (r, p, t, W, _H, G0) => {
-      // a short circuit: sparks, then a curl of smoke
-      const x = Math.round(W * 0.6)
-      if (p < 0.4) for (let k = 0; k < 6; k++) r(x + Math.round(Math.cos(k + t * 9) * 4), G0 - 2 + Math.round(Math.sin(k + t * 9) * 3), 1, 1, '#ffe08a')
-      else r(x + Math.round((p - 0.4) * 6), G0 - 4 - Math.round((p - 0.4) * 30), 2, 2, '#6a6a6a')
+    seconds: 8,
+    draw: (r, p, _t, _W, _H, G0, ax) => {
+      // the game's short (fx.js): the character's cross-section joins two traces where it stands, a
+      // burst of sparks falling back, a scorch left on the trace, and a component nearby smoking
+      const x = Math.round(ax), e = p * 8
+      for (let k = 0; k < 6; k++) r(x - 3 + Math.round(hash(k + 60) * 6), G0 + (k % 2), 1, 1, '#22160c')
+      if (e < 0.7) {
+        for (let k = 0; k < 14; k++) {
+          const a = hash(k + 70) * Math.PI * 2, v = 10 + hash(k + 80) * 30
+          r(Math.round(x + Math.cos(a) * v * e), Math.round(G0 - 1 + Math.sin(a) * v * e + 20 * e * e), 1, 1, e < 0.3 ? '#fff8dc' : '#ffaa3c')
+        }
+      }
+      if (e > 0.6) {
+        for (let n = 0; n < 3; n++) {
+          const u = (e / 1.6 + n / 3) % 1, s = Math.round(1 + u * 2)
+          r(Math.round(x + 9 + Math.sin(u * 5 + n) * (1 + u * 4)), Math.round(G0 - 3 - u * 18), s, s, '#b0b4b0')
+        }
+      }
     },
-    words: { zh: '短路了一下。电从走线里漏出来，留下一点焦味。', ja: '一瞬ショートした。電気が配線から漏れて、焦げた匂いが残った。', en: 'A short circuit. Current leaked from the trace and left a smell of scorching.' },
+    words: { zh: '我走过的地方打出了一串火花。我的截面把两条线连到了一起——在它们那里，这叫短路。', ja: '通ったところで火花が散った。私の断面が二本の線をつないでしまった。あちらでは、これをショートと呼ぶ。', en: 'Sparks flew where I passed. My cross-section joined two traces together; down there, that’s called a short circuit.' },
   },
   ink: {
     seconds: 9,
