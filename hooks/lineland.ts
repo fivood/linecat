@@ -270,10 +270,12 @@ export function tick(dt: number): boolean {
       f.rest -= dt
       continue
     }
-    const nx = f.x + f.dir * 5 * dt, c = sim.cells[Math.floor(nx / CELL)]
+    // (on the sky's ring they are rubble: it drifts slowly and never stops)
+    const isRubble = sim.theme === 'sky'
+    const nx = f.x + f.dir * (isRubble ? 2 : 5) * dt, c = sim.cells[Math.floor(nx / CELL)]
     if (nx < 8 || nx > end - 8 || c === 'rift' || c === 'water') f.dir = -f.dir
     else f.x = nx
-    if (Math.random() < dt * 0.15) f.rest = 1 + Math.random() * 4
+    if (!isRubble && Math.random() < dt * 0.15) f.rest = 1 + Math.random() * 4
   }
 
   // a wonder speaks up when the character walks up to it, once every few minutes
@@ -517,10 +519,17 @@ export function draw(scene: Scene, viewW = W): string {
   }
 
   // the residents: short upright strokes, all the line lets them be
-  for (const f of sim.folk) {
+  for (const [k, f] of sim.folk.entries()) {
     const fx = Math.round(f.x - v.camX)
     if (fx < -2 || fx > viewW) continue
     const fy = G0, c = FOLK[th.id] ?? INK
+    if (th.id === 'sky') {
+      // the line on the sky is a planet's ring seen edge on: nobody lives there, only its rubble,
+      // bobbing a little as it tumbles along
+      const w = 3 + (k % 2), h = 2 + (k % 3 ? 0 : 1), y = fy - h - 1 + Math.round(Math.sin(v.t * 0.8 + k * 2))
+      r(fx, y, w, h, c); r(fx, y, 1, 1, '#dcbea0')
+      continue
+    }
     // a head, a body, and legs that step while walking
     const step = f.rest > 0 ? 0 : Math.floor(v.t * 4 + fx) % 2
     r(fx, fy - 7, 2, 2, c); r(fx, fy - 4, 2, 3, c); r(fx - step, fy - 1, 1, 1, c); r(fx + 1 + step, fy - 1, 1, 1, c)

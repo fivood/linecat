@@ -197,11 +197,17 @@ export const THEMES: Theme[] = [
     water: ['#181c2a', '#5a6488'], rift: ['#1e1432', '#b496ff'],
     rock: '#8c7864', peak: '#dcbea0', cap: '#f0f4ff',
     tree: ['#784670', '#c890c0'],
-    decor: (r, t, camX, W, H) => {
+    decor: (r, t, camX, W, H, G0) => {
       // stars that twinkle, and now and then a meteor surfacing mid-sky
       for (let k = 0; k < 40; k++) {
         const x = Math.round((((hash(k) * 800 - camX * 0.2) % W) + W) % W), y = Math.round(hash(k + 99) * (H - 14))
         r(x, y, 1, 1, Math.floor(t * 2 + k) % 7 === 0 ? '#ffffff' : '#6a7090')
+      }
+      // the ring's planet: the line is its ring seen edge on, so it runs through the equator
+      const R = 26, span = W + 60, px = (((150 - camX * 0.05) % span) + span) % span - 30
+      for (let dy = -R; dy <= H - G0; dy++) {
+        const w = Math.round(Math.sqrt(R * R - dy * dy))
+        r(px - w, G0 + dy, w * 2 + 1, 1, ((dy + 40) >> 2) % 2 ? '#262640' : '#2e2a46')
       }
       const p = t % 15
       if (p < 3) {
@@ -228,18 +234,27 @@ export type SheetEvent = {
 
 export const FOLK: Record<string, string> = {
   earth: '#6c5a48', foil: '#8a7aa8', dune: '#7a4a2a', solaris: '#3c8c8c', crystal: '#7a64a8',
-  pcb: '#e8ece2', ink: '#3c3c3a', blueprint: '#e2ecff', slide: '#6a3a8a', sky: '#c8d0f0',
+  pcb: '#e8ece2', ink: '#3c3c3a', blueprint: '#e2ecff', slide: '#6a3a8a', sky: '#8c7864',
 }
 
 // anything that moves keeps to about a pixel a frame (8 px/s at the band's 8 fps): faster, it jumps
 export const EVENTS: Record<string, SheetEvent> = {
   earth: {
     seconds: 9,
-    draw: (r, p, t, W) => {
+    draw: (r, p, t, W, _H, G0) => {
       // a shower crossing the sheet, a rainbow after it
       const n = Math.round(Math.sin(p * Math.PI) * 30)
       for (let k = 0; k < n; k++) r(Math.round(hash(k) * W), Math.round(((t * 24 + hash(k + 7) * 50) % 46)), 1, 3, '#7ab4dc')
-      if (p > 0.6) ['#e06a50', '#e2ba5c', '#80ae5c', '#528cbe'].forEach((c, k) => r(W - 60 + k, 6 + k, 40 - k * 2, 1, c))
+      // the rainbow: four bands of a half circle standing on the line, drawn a column at a time
+      if (p > 0.6) {
+        ;['#e06a50', '#e2ba5c', '#80ae5c', '#528cbe'].forEach((c, k) => {
+          const R = 24 - k
+          for (let dx = -R + 1; dx < R; dx++) {
+            const top = Math.round(Math.sqrt(R * R - dx * dx)), bot = Math.abs(dx) < R - 1 ? Math.round(Math.sqrt((R - 1) ** 2 - dx * dx)) : 0
+            r(W - 45 + dx, G0 - top, 1, Math.max(1, top - bot), c)
+          }
+        })
+      }
     },
     words: { zh: '下了一阵雨。在这里，雨是从纸的一边落到另一边的。', ja: 'ひとしきり雨が降った。ここでは雨は紙の端から端へ降る。', en: 'A shower passed. Here, rain falls from one edge of the paper to the other.' },
   },
